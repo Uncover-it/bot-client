@@ -38,8 +38,9 @@ export default function Home() {
         </p>
         <div className="flex gap-4 justify-end items-center">
           <Link
-            href="#"
+            href="https://github.com/Uncover-it/bot-client"
             className="text-sm text-muted-foreground hover:underline"
+            target="_blank"
           >
             Source
           </Link>
