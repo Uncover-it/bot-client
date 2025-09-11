@@ -5,11 +5,11 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { validateToken } from "@/api/validate/actions";
 import { useState } from "react";
-import { useRouter } from 'next/navigation'
+import { useRouter } from "next/navigation";
 
 export default function LoginForm() {
   const [token, setToken] = useState("");
-  const router = useRouter()
+  const router = useRouter();
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -17,10 +17,9 @@ export default function LoginForm() {
     if (regex.test(token)) {
       const data = await validateToken(token);
       if (data.username) {
-        router.push("/dashboard")
-      }
-        else {
-        toast.error("Error", {description: "Invalid Bot Token"})
+        router.push("/dashboard");
+      } else {
+        toast.error("Error", { description: "Invalid Bot Token" });
       }
     } else {
       toast.error("Error", { description: "Invalid Bot Token" });

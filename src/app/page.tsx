@@ -24,7 +24,9 @@ export default function Home() {
           <Card className="mt-4">
             <CardHeader>
               <CardTitle>Enter your bot token</CardTitle>
-              <CardDescription>We don&apos;t store your data :)</CardDescription>
+              <CardDescription>
+                We don&apos;t store your data :)
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <LoginForm />
@@ -32,21 +34,21 @@ export default function Home() {
           </Card>
         </div>
         <footer className="py-4 max-w-sm w-full">
-      <div className="flex flex-col items-center justify-between gap-4 flex-row">
-        <p className="text-sm text-muted-foreground">
-          &copy; {new Date().getFullYear()} Uncover it. All rights reserved.
-        </p>
-        <div className="flex gap-4 justify-end items-center">
-          <Link
-            href="https://github.com/Uncover-it/bot-client"
-            className="text-sm text-muted-foreground hover:underline"
-            target="_blank"
-          >
-            Source
-          </Link>
-        </div>
-      </div>
-    </footer>
+          <div className="flex flex-col items-center justify-between gap-4 flex-row">
+            <p className="text-sm text-muted-foreground">
+              &copy; {new Date().getFullYear()} Uncover it. All rights reserved.
+            </p>
+            <div className="flex gap-4 justify-end items-center">
+              <Link
+                href="https://github.com/Uncover-it/bot-client"
+                className="text-sm text-muted-foreground hover:underline"
+                target="_blank"
+              >
+                Source
+              </Link>
+            </div>
+          </div>
+        </footer>
       </div>
     </main>
   );
