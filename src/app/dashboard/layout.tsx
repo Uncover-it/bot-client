@@ -1,8 +1,8 @@
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/sidebar";
-import { ThemeProvider } from "next-themes";
-import Script from "next/script";
 import { Toaster } from "@/components/ui/sonner";
+import "@/app/globals.css";
+export const experimental_ppr = true
 
 export default function RootLayout({
   children,
@@ -10,20 +10,21 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body>
-        <ThemeProvider attribute="class" disableTransitionOnChange enableSystem>
-          <SidebarProvider>
-            <AppSidebar />
-            <main>
-              <SidebarTrigger />
-              {children}
-              <Toaster position="top-right" />
-            </main>
-          </SidebarProvider>
-        </ThemeProvider>
-      </body>
-      <Script src="https://api.instatus.com/widget?host=status.uncoverit.org&code=4f0eef87&locale=en" />
-    </html>
+    <>
+      <SidebarProvider>
+        <AppSidebar />
+        <SidebarInset>
+        <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
+          <div className="flex items-center gap-2 px-4">
+            <SidebarTrigger className="-ml-1" />
+          </div>
+        </header>
+      </SidebarInset>
+        <main>
+          {children}
+          <Toaster position="top-right" />
+        </main>
+      </SidebarProvider>
+    </>
   );
 }
