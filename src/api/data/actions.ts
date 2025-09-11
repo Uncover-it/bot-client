@@ -8,10 +8,21 @@ export async function logout() {
   redirect("/")
 }
 
-export async function getInfo() {
+export async function getBotInfo() {
   const cookieStore = await cookies();
   const token = cookieStore.get("token")?.value;
   const response = await fetch("https://discord.com/api/v10/users/@me", {
+    headers: {
+      Authorization: `Bot ${token}`,
+    },
+  });
+  return response.json();
+}
+
+export async function getServers() {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("token")?.value;
+  const response = await fetch("https://discord.com/api/v10/users/@me/guilds", {
     headers: {
       Authorization: `Bot ${token}`,
     },
