@@ -14,16 +14,30 @@ export default function LoginForm() {
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     const regex = /[\w-]{24,26}\.[\w-]{6}\.[\w-]{25,110}/;
-    if (regex.test(token)) {
+    if (!regex.test(token)) {
+      toast.error("Error", { description: "Invalid Bot Token" });
+      return;
+    }
+
+    const loginPromise = async () => {
       const data = await validateToken(token);
       if (data.username) {
-        router.push("/dashboard");
+        return data;
       } else {
-        toast.error("Error", { description: "Invalid Bot Token" });
+        throw new Error("Invalid Bot Token");
       }
-    } else {
-      toast.error("Error", { description: "Invalid Bot Token" });
-    }
+    };
+
+    toast.promise(loginPromise(), {
+      loading: "Logging in...",
+      success: () => {
+        router.push("/dashboard");
+        return `Logged in`;
+      },
+      error: (error) => {
+        return `Error: ${error.message}`;
+      },
+    });
   };
 
   return (

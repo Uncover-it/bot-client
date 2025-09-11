@@ -4,8 +4,8 @@ import { redirect } from "next/navigation";
 
 export async function logout() {
   const cookieStore = await cookies();
-  cookieStore.delete("token")
-  redirect("/")
+  cookieStore.delete("token");
+  redirect("/");
 }
 
 export async function getBotInfo() {
@@ -14,6 +14,9 @@ export async function getBotInfo() {
   const response = await fetch("https://discord.com/api/v10/users/@me", {
     headers: {
       Authorization: `Bot ${token}`,
+    },
+    next: {
+      revalidate: 120,
     },
   });
   return response.json();
@@ -25,6 +28,9 @@ export async function getServers() {
   const response = await fetch("https://discord.com/api/v10/users/@me/guilds", {
     headers: {
       Authorization: `Bot ${token}`,
+    },
+    next: {
+      revalidate: 120,
     },
   });
   return response.json();
