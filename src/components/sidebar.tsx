@@ -76,6 +76,7 @@ async function Servers() {
                       height: "32px",
                       borderRadius: "8px",
                     }}
+                    unoptimized
                   />
                 ) : (
                   <div className="size-8 rounded-xl flex text-center justify-center text-lg items-center grid bg-border font-medium font-mono">
@@ -130,6 +131,7 @@ async function Footer() {
                     height: "32px",
                     borderRadius: "8px",
                   }}
+                  unoptimized
                 />
               ) : (
                 <Image
