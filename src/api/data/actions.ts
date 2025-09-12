@@ -35,3 +35,17 @@ export async function getServers() {
   });
   return response.json();
 }
+
+export async function updateBotInfo(username: string) {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("token")?.value;
+  const response = await fetch("https://discord.com/api/users/@me", {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bot ${token}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ username: username }),
+  });
+  return response.json();
+}

@@ -32,6 +32,12 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import Link from "next/link";
+import {
+  Dialog,
+  DialogContent,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { BotSettings } from "@/components/settings";
 
 interface ServerProps {
   id: number;
@@ -57,11 +63,7 @@ async function Servers() {
   return (
     <SidebarMenu>
       {data.map((server: ServerProps) => (
-        <Collapsible
-          key={server.id}
-          asChild
-          className="group/collapsible px-2"
-        >
+        <Collapsible key={server.id} asChild className="group/collapsible px-2">
           <SidebarMenuItem>
             <CollapsibleTrigger asChild>
               <SidebarMenuButton tooltip={server.name} className="h-12">
@@ -114,69 +116,76 @@ async function Footer() {
   return (
     <SidebarMenu>
       <SidebarMenuItem>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <SidebarMenuButton
-              size="lg"
-              className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+        <Dialog>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <SidebarMenuButton
+                size="lg"
+                className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+              >
+                {data.logo !== null ? (
+                  <Image
+                    src={`https://cdn.discordapp.com/avatars/${data.id}/${data.avatar}`}
+                    alt={data.username}
+                    width={128}
+                    height={128}
+                    style={{
+                      width: "32px",
+                      height: "32px",
+                      borderRadius: "8px",
+                    }}
+                    unoptimized
+                  />
+                ) : (
+                  <Image
+                    src="/discord.svg"
+                    alt={data.username}
+                    width={128}
+                    height={128}
+                    style={{
+                      width: "32px",
+                      height: "32px",
+                      borderRadius: "8px",
+                    }}
+                  />
+                )}
+                <div className="grid flex-1 text-left text-sm leading-tight">
+                  <span className="truncate font-medium">{data.username}</span>
+                  <span className="text-muted-foreground truncate text-xs">
+                    {data.id}
+                  </span>
+                </div>
+                <EllipsisVertical className="ml-auto size-4" />
+              </SidebarMenuButton>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
+              align="end"
+              sideOffset={4}
             >
-              {data.logo !== null ? (
-                <Image
-                  src={`https://cdn.discordapp.com/avatars/${data.id}/${data.avatar}`}
-                  alt={data.username}
-                  width={128}
-                  height={128}
-                  style={{
-                    width: "32px",
-                    height: "32px",
-                    borderRadius: "8px",
-                  }}
-                  unoptimized
-                />
-              ) : (
-                <Image
-                  src="/discord.svg"
-                  alt={data.username}
-                  width={128}
-                  height={128}
-                  style={{
-                    width: "32px",
-                    height: "32px",
-                    borderRadius: "8px",
-                  }}
-                />
-              )}
-              <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-medium">{data.username}</span>
-                <span className="text-muted-foreground truncate text-xs">
-                  {data.id}
-                </span>
-              </div>
-              <EllipsisVertical className="ml-auto size-4" />
-            </SidebarMenuButton>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
-            align="end"
-            sideOffset={4}
-          >
-            <DropdownMenuGroup>
-              <DropdownMenuItem>
-                <Cog />
-                Settings
+              <DropdownMenuGroup>
+                <DialogTrigger asChild>
+                  <DropdownMenuItem>
+                    <Cog />
+                    Settings
+                  </DropdownMenuItem>
+                </DialogTrigger>
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem variant="destructive" asChild>
+                <form action={logout}>
+                  <button className="flex w-full items-center gap-2">
+                    <LogOut className="text-destructive" />
+                    Log out
+                  </button>
+                </form>
               </DropdownMenuItem>
-            </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem variant="destructive" asChild>
-              <form action={logout}>
-                <button className="flex w-full items-center gap-2">
-                  <LogOut className="text-destructive" />
-                  Log out
-                </button>
-              </form>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <DialogContent>
+            <BotSettings />
+          </DialogContent>
+        </Dialog>
       </SidebarMenuItem>
     </SidebarMenu>
   );

@@ -11,7 +11,7 @@ export default function LoginForm() {
   const [token, setToken] = useState("");
   const router = useRouter();
 
-  const handleSubmit = async (event: React.FormEvent) => {
+  const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
     const regex = /[\w-]{24,26}\.[\w-]{6}\.[\w-]{25,110}/;
     if (!regex.test(token)) {
@@ -47,7 +47,6 @@ export default function LoginForm() {
         required
         id="token"
         type="text"
-        value={token}
         onChange={(e) => setToken(e.target.value)}
       />
       <Button className="mt-4 w-full" variant={"default"} disabled={!token}>
