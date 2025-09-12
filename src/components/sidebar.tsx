@@ -123,7 +123,7 @@ async function Footer() {
                 size="lg"
                 className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
               >
-                {data.logo !== null ? (
+                {data.logo !== "null" ? (
                   <Image
                     src={`https://cdn.discordapp.com/avatars/${data.id}/${data.avatar}`}
                     alt={data.username}
