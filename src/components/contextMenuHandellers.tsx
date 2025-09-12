@@ -30,7 +30,7 @@ export function InviteLink({ id }: { id: number | undefined }) {
     toast.promise(invPormise(), {
       loading: "Fetching Invite link",
       success: () => {
-        return `Invite Link Copied to Clipboard`;
+        return `Invite Link copied to clipboard`;
       },
       error: (error) => {
         return `Error: ${error.message}`;
