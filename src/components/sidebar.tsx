@@ -20,7 +20,7 @@ import {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
-  SidebarRail
+  SidebarRail,
 } from "@/components/ui/sidebar";
 import { Suspense } from "react";
 import {
@@ -50,7 +50,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
-import { CopyID } from "@/components/copy-handellers";
+import { CopyID, InviteLink } from "@/components/contextMenuHandellers";
 
 interface ServerProps {
   id: number;
@@ -114,8 +114,18 @@ async function Servers() {
                 </CollapsibleTrigger>
               </ContextMenuTrigger>
               <ContextMenuContent className="bg-sidebar font-mono tracking-tighter">
-                <CopyID id={server.id} />
+                <InviteLink
+                  id={
+                    server.channels.find(
+                      (channel) =>
+                        channel.type === 0 ||
+                        channel.type === 2 ||
+                        channel.type === 5
+                    )?.id
+                  }
+                />
                 <ContextMenuSeparator />
+                <CopyID id={server.id} />
                 <ContextMenuItem>
                   <ExternalLink />
                   <Link
@@ -136,7 +146,10 @@ async function Servers() {
                       <ContextMenu>
                         <ContextMenuTrigger asChild>
                           <SidebarMenuSubButton asChild>
-                            <Link href="#" className="font-mono text-clip min-h-8 ">
+                            <Link
+                              href="#"
+                              className="font-mono text-clip min-h-8 "
+                            >
                               <span className="text-muted-foreground">
                                 {channel.type === 2 ? (
                                   <Mic size={20} />
@@ -151,6 +164,8 @@ async function Servers() {
                           </SidebarMenuSubButton>
                         </ContextMenuTrigger>
                         <ContextMenuContent className="bg-sidebar font-mono tracking-tighter">
+                          <InviteLink id={channel.id}/>
+                          <ContextMenuSeparator/>
                           <CopyID id={channel.id} />
                         </ContextMenuContent>
                       </ContextMenu>

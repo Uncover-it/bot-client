@@ -18,11 +18,9 @@ export function BotSettings() {
   const [username, setUsername] = useState("");
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
-    console.log(username);
 
     const loginPromise = async () => {
-      const data = await updateBotInfo(username);
-      console.log(data)
+      await updateBotInfo(username);
     };
 
     toast.promise(loginPromise(), {

@@ -60,8 +60,6 @@ export async function getServers() {
       let channels = [];
       if (channelsResponse.ok) {
         channels = await channelsResponse.json();
-      } else {
-        console.error(`Failed to fetch channels for guild ${guild.id}`);
       }
       return { ...guild, channels };
     })
@@ -82,4 +80,20 @@ export async function updateBotInfo(username: string) {
     body: JSON.stringify({ username: username }),
   });
   return response.json();
+}
+
+export async function getInviteCode(id: number | undefined) {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("token")?.value;
+  const response = await fetch(
+    `https://discord.com/api/v10/channels/${id}/invites`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bot ${token}`,
+      },
+    }
+  );
+  const data = await response.json()
+  return data.code;
 }
