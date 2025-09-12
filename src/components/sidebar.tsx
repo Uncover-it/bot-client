@@ -4,6 +4,9 @@ import {
   LogOut,
   ChevronRight,
   ExternalLink,
+  Hash,
+  Megaphone,
+  Mic,
 } from "lucide-react";
 import {
   Sidebar,
@@ -17,8 +20,8 @@ import {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
+  SidebarRail
 } from "@/components/ui/sidebar";
-import { getBotInfo, getServers } from "@/api/data/actions";
 import { Suspense } from "react";
 import {
   DropdownMenu,
@@ -29,7 +32,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import Image from "next/image";
-import { logout } from "@/api/data/actions";
+import { logout, getBotInfo, getServers } from "@/api/data/actions";
 import Logo from "../../public/logo.png";
 import { ThemeToggle } from "@/components/theme-toggle";
 import {
@@ -53,7 +56,13 @@ interface ServerProps {
   id: number;
   name: string;
   icon: string | null;
-  features: string[];
+  channels: ChannelProps[];
+}
+
+interface ChannelProps {
+  id: number;
+  name: string;
+  type: number;
 }
 
 function Skeleton() {
@@ -120,22 +129,33 @@ async function Servers() {
             </ContextMenu>
             <CollapsibleContent>
               <SidebarMenuSub>
-                {server.features?.map((subItem: string) => (
-                  <SidebarMenuSubItem key={subItem}>
-                    <ContextMenu>
-                      <ContextMenuTrigger asChild>
-                        <SidebarMenuSubButton asChild>
-                          <Link href="#">
-                            <span>{subItem}</span>
-                          </Link>
-                        </SidebarMenuSubButton>
-                      </ContextMenuTrigger>
-                      <ContextMenuContent className="bg-sidebar font-mono tracking-tighter">
-                        <CopyID id={server.id} />
-                      </ContextMenuContent>
-                    </ContextMenu>
-                  </SidebarMenuSubItem>
-                ))}
+                {server.channels
+                  ?.filter((channel) => channel.type !== 4)
+                  .map((channel) => (
+                    <SidebarMenuSubItem key={channel.id}>
+                      <ContextMenu>
+                        <ContextMenuTrigger asChild>
+                          <SidebarMenuSubButton asChild>
+                            <Link href="#" className="font-mono text-clip min-h-8 ">
+                              <span className="text-muted-foreground">
+                                {channel.type === 2 ? (
+                                  <Mic size={20} />
+                                ) : channel.type === 5 ? (
+                                  <Megaphone size={20} />
+                                ) : (
+                                  <Hash size={20} />
+                                )}
+                              </span>
+                              {channel.name}
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </ContextMenuTrigger>
+                        <ContextMenuContent className="bg-sidebar font-mono tracking-tighter">
+                          <CopyID id={channel.id} />
+                        </ContextMenuContent>
+                      </ContextMenu>
+                    </SidebarMenuSubItem>
+                  ))}
               </SidebarMenuSub>
             </CollapsibleContent>
           </SidebarMenuItem>
@@ -228,7 +248,7 @@ async function Footer() {
 export function AppSidebar() {
   return (
     <Sidebar>
-      <SidebarHeader>
+      <SidebarHeader className="border-b ">
         <SidebarMenu>
           <SidebarMenuItem>
             <div className="flex w-full items-center gap-2 overflow-hidden rounded-md pr-0 p-2 text-left text-sm outline-hidden ring-sidebar-ring transition-[width,height,padding] [&>svg]:size-4 [&>svg]:shrink-0">
@@ -254,11 +274,12 @@ export function AppSidebar() {
         </Suspense>
       </SidebarContent>
 
-      <SidebarFooter>
+      <SidebarFooter className="border-t shadow-2xl inset-shadow-xs ">
         <Suspense fallback={<Skeleton />}>
           <Footer />
         </Suspense>
       </SidebarFooter>
+      <SidebarRail />
     </Sidebar>
   );
 }
