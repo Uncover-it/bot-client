@@ -1,4 +1,10 @@
-import { EllipsisVertical, Cog, LogOut, ChevronRight } from "lucide-react";
+import {
+  EllipsisVertical,
+  Cog,
+  LogOut,
+  ChevronRight,
+  ExternalLink,
+} from "lucide-react";
 import {
   Sidebar,
   SidebarMenu,
@@ -32,12 +38,16 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import Link from "next/link";
-import {
-  Dialog,
-  DialogContent,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { BotSettings } from "@/components/settings";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
+import { CopyID } from "@/components/copy-handellers";
 
 interface ServerProps {
   id: number;
@@ -65,41 +75,65 @@ async function Servers() {
       {data.map((server: ServerProps) => (
         <Collapsible key={server.id} asChild className="group/collapsible px-2">
           <SidebarMenuItem>
-            <CollapsibleTrigger asChild>
-              <SidebarMenuButton tooltip={server.name} className="h-12">
-                {server.icon ? (
-                  <Image
-                    src={`https://cdn.discordapp.com/icons/${server.id}/${server.icon}.png`}
-                    alt={server.name}
-                    width={114}
-                    height={114}
-                    style={{
-                      width: "32px",
-                      height: "32px",
-                      borderRadius: "8px",
-                    }}
-                    unoptimized
-                  />
-                ) : (
-                  <div className="size-8 rounded-xl flex text-center justify-center text-lg items-center grid bg-border font-medium font-mono">
-                    {server.name.charAt(0).toUpperCase()}
-                  </div>
-                )}
-                <span className="text-md ml-1 flex font-medium">
-                  {server.name}
-                </span>
-                <ChevronRight className="ml-auto transition-transform group-data-[state=open]/collapsible:rotate-90" />
-              </SidebarMenuButton>
-            </CollapsibleTrigger>
+            <ContextMenu>
+              <ContextMenuTrigger asChild>
+                <CollapsibleTrigger asChild>
+                  <SidebarMenuButton tooltip={server.name} className="h-12">
+                    {server.icon ? (
+                      <Image
+                        src={`https://cdn.discordapp.com/icons/${server.id}/${server.icon}.png`}
+                        alt={server.name}
+                        width={114}
+                        height={114}
+                        style={{
+                          width: "32px",
+                          height: "32px",
+                          borderRadius: "8px",
+                        }}
+                        unoptimized
+                      />
+                    ) : (
+                      <div className="size-8 rounded-xl flex text-center justify-center text-lg items-center grid bg-border font-medium font-mono">
+                        {server.name.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                    <span className="text-md ml-1 flex font-medium">
+                      {server.name}
+                    </span>
+                    <ChevronRight className="ml-auto transition-transform group-data-[state=open]/collapsible:rotate-90" />
+                  </SidebarMenuButton>
+                </CollapsibleTrigger>
+              </ContextMenuTrigger>
+              <ContextMenuContent className="bg-sidebar font-mono tracking-tighter">
+                <CopyID id={server.id} />
+                <ContextMenuSeparator />
+                <ContextMenuItem>
+                  <ExternalLink />
+                  <Link
+                    href={`https://id.uncoverit.org?id=${server.id}`}
+                    target="_blank"
+                  >
+                    Lookup ID
+                  </Link>
+                </ContextMenuItem>
+              </ContextMenuContent>
+            </ContextMenu>
             <CollapsibleContent>
               <SidebarMenuSub>
                 {server.features?.map((subItem: string) => (
                   <SidebarMenuSubItem key={subItem}>
-                    <SidebarMenuSubButton asChild>
-                      <Link href="#">
-                        <span>{subItem}</span>
-                      </Link>
-                    </SidebarMenuSubButton>
+                    <ContextMenu>
+                      <ContextMenuTrigger asChild>
+                        <SidebarMenuSubButton asChild>
+                          <Link href="#">
+                            <span>{subItem}</span>
+                          </Link>
+                        </SidebarMenuSubButton>
+                      </ContextMenuTrigger>
+                      <ContextMenuContent className="bg-sidebar font-mono tracking-tighter">
+                        <CopyID id={server.id} />
+                      </ContextMenuContent>
+                    </ContextMenu>
                   </SidebarMenuSubItem>
                 ))}
               </SidebarMenuSub>
