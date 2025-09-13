@@ -7,6 +7,7 @@ import {
   Hash,
   Megaphone,
   Mic,
+  IdCard,
 } from "lucide-react";
 import {
   Sidebar,
@@ -48,6 +49,9 @@ import {
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuSeparator,
+  ContextMenuSub,
+  ContextMenuSubContent,
+  ContextMenuSubTrigger,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import { CopyID, InviteLink } from "@/components/contextMenuHandellers";
@@ -56,6 +60,7 @@ interface ServerProps {
   id: number;
   name: string;
   icon: string | null;
+  permissions: string;
   channels: ChannelProps[];
 }
 
@@ -65,7 +70,7 @@ interface ChannelProps {
   type: number;
 }
 
-function Skeleton({count} : {count: number}) {
+function Skeleton({ count }: { count: number }) {
   return (
     <SidebarMenu>
       {Array.from({ length: count }).map((_, index) => (
@@ -79,103 +84,178 @@ function Skeleton({count} : {count: number}) {
 
 async function Servers() {
   const data = await getServers();
+  const permissionsMap: { [key: string]: bigint } = {
+  "Administrator": 1n << 3n,
+  "Manage Server": 1n << 5n,
+  "Manage Roles": 1n << 28n,
+  "Manage Channels": 1n << 4n,
+  "Ban Members": 1n << 2n,
+  "Kick Members": 1n << 1n,
+  "Manage Webhooks": 1n << 29n,
+  "Manage Events": 1n << 33n,
+  "Manage Threads": 1n << 34n,
+  "Manage Guild Expressions": 1n << 30n,
+  "Create Guild Expressions": 1n << 43n,
+  "Create Events": 1n << 44n,
+  "Manage Nicknames": 1n << 27n,
+  "Change Nickname": 1n << 26n,
+  "Moderate Members": 1n << 40n,
+  "View Audit Log": 1n << 7n,
+  "View Guild Insights": 1n << 19n,
+  "View Creator Monetization Analytics": 1n << 41n,
+  "View Channel": 1n << 10n,
+  "Send Messages": 1n << 11n,
+  "Send TTS Messages": 1n << 12n,
+  "Manage Messages": 1n << 13n,
+  "Embed Links": 1n << 14n,
+  "Attach Files": 1n << 15n,
+  "Read Message History": 1n << 16n,
+  "Mention Everyone": 1n << 17n,
+  "Send Messages in Threads": 1n << 38n,
+  "Send Voice Messages": 1n << 46n,
+  "Send Polls": 1n << 49n,
+  "Pin Messages": 1n << 51n,
+  "Add Reactions": 1n << 6n,
+  "Use External Emojis": 1n << 18n,
+  "Use External Stickers": 1n << 37n,
+  "Use External Sounds": 1n << 45n,
+  "Use External Apps": 1n << 50n,
+  "Use Embedded Activities": 1n << 39n,
+  "Use Application Commands": 1n << 31n,
+  "Connect": 1n << 20n,
+  "Speak": 1n << 21n,
+  "Mute Members": 1n << 22n,
+  "Deafen Members": 1n << 23n,
+  "Move Members": 1n << 24n,
+  "Use VAD": 1n << 25n,
+  "Priority Speaker": 1n << 8n,
+  "Stream": 1n << 9n,
+  "Request to Speak": 1n << 32n,
+  "Create Instant Invite": 1n << 0n,
+  "Create Public Threads": 1n << 35n,
+  "Create Private Threads": 1n << 36n,
+  "Use Soundboard": 1n << 42n,
+};
+
   return (
     <SidebarMenu>
-      {data.map((server: ServerProps) => (
-        <Collapsible key={server.id} asChild className="group/collapsible px-2">
-          <SidebarMenuItem>
-            <ContextMenu>
-              <ContextMenuTrigger asChild>
-                <CollapsibleTrigger asChild>
-                  <SidebarMenuButton tooltip={server.name} className="h-12">
-                    {server.icon ? (
-                      <Image
-                        src={`https://cdn.discordapp.com/icons/${server.id}/${server.icon}.png`}
-                        alt={server.name}
-                        width={114}
-                        height={114}
-                        style={{
-                          width: "32px",
-                          height: "32px",
-                          borderRadius: "8px",
-                        }}
-                        unoptimized
-                      />
-                    ) : (
-                      <div className="size-8 rounded-xl flex text-center justify-center text-lg items-center grid bg-border font-medium font-mono">
-                        {server.name.charAt(0).toUpperCase()}
-                      </div>
-                    )}
-                    <span className="text-md ml-1 flex font-medium">
-                      {server.name}
-                    </span>
-                    <ChevronRight className="ml-auto transition-transform group-data-[state=open]/collapsible:rotate-90" />
-                  </SidebarMenuButton>
-                </CollapsibleTrigger>
-              </ContextMenuTrigger>
-              <ContextMenuContent className="bg-sidebar font-mono tracking-tighter">
-                <InviteLink
-                  id={
-                    server.channels.find(
-                      (channel) =>
-                        channel.type === 0 ||
-                        channel.type === 2 ||
-                        channel.type === 5
-                    )?.id
-                  }
-                />
-                <ContextMenuSeparator />
-                <CopyID id={server.id} />
-                <ContextMenuItem>
-                  <ExternalLink />
-                  <Link
-                    href={`https://id.uncoverit.org?id=${server.id}`}
-                    target="_blank"
-                  >
-                    Lookup ID
-                  </Link>
-                </ContextMenuItem>
-              </ContextMenuContent>
-            </ContextMenu>
-            <CollapsibleContent>
-              <SidebarMenuSub>
-                {server.channels
-                  ?.filter((channel) => channel.type !== 4)
-                  .map((channel) => (
-                    <SidebarMenuSubItem key={channel.id}>
-                      <ContextMenu>
-                        <ContextMenuTrigger asChild>
-                          <SidebarMenuSubButton asChild>
-                            <Link
-                              href="#"
-                              className="font-mono text-clip min-h-8 "
-                            >
-                              <span className="text-muted-foreground">
-                                {channel.type === 2 ? (
-                                  <Mic size={20} />
-                                ) : channel.type === 5 ? (
-                                  <Megaphone size={20} />
-                                ) : (
-                                  <Hash size={20} />
-                                )}
-                              </span>
-                              {channel.name}
-                            </Link>
-                          </SidebarMenuSubButton>
-                        </ContextMenuTrigger>
-                        <ContextMenuContent className="bg-sidebar font-mono tracking-tighter">
-                          <InviteLink id={channel.id}/>
-                          <ContextMenuSeparator/>
-                          <CopyID id={channel.id} />
-                        </ContextMenuContent>
-                      </ContextMenu>
-                    </SidebarMenuSubItem>
-                  ))}
-              </SidebarMenuSub>
-            </CollapsibleContent>
-          </SidebarMenuItem>
-        </Collapsible>
-      ))}
+      {data.map((server: ServerProps) => {
+        const serverPermissions = BigInt(server.permissions);
+        const enabledPermissions = Object.keys(permissionsMap).filter(
+          (key) => (serverPermissions & permissionsMap[key]) !== 0n
+        );
+
+        return (
+          <Collapsible key={server.id} asChild className="group/collapsible px-2">
+            <SidebarMenuItem>
+              <ContextMenu>
+                <ContextMenuTrigger asChild>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton tooltip={server.name} className="h-12">
+                      {server.icon ? (
+                        <Image
+                          src={`https://cdn.discordapp.com/icons/${server.id}/${server.icon}.png`}
+                          alt={server.name}
+                          width={114}
+                          height={114}
+                          style={{
+                            width: "32px",
+                            height: "32px",
+                            borderRadius: "8px",
+                          }}
+                          unoptimized
+                        />
+                      ) : (
+                        <div className="size-8 rounded-xl flex text-center justify-center text-lg items-center grid bg-border font-medium font-mono">
+                          {server.name.charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                      <span className="text-md ml-1 flex font-medium">
+                        {server.name}
+                      </span>
+                      <ChevronRight className="ml-auto transition-transform group-data-[state=open]/collapsible:rotate-90" />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                </ContextMenuTrigger>
+                <ContextMenuContent className="bg-sidebar font-mono tracking-tighter">
+                  <InviteLink
+                    id={
+                      server.channels.find(
+                        (channel) =>
+                          channel.type === 0 ||
+                          channel.type === 2 ||
+                          channel.type === 5
+                      )?.id
+                    }
+                  />
+                  <ContextMenuSub>
+                    <ContextMenuSubTrigger>
+                      <IdCard />
+                      Permissions
+                    </ContextMenuSubTrigger>
+                    <ContextMenuSubContent className="bg-sidebar">
+                      {enabledPermissions.length > 0 ? (
+                        enabledPermissions.map((permission) => (
+                          <ContextMenuItem key={permission}>{permission}</ContextMenuItem>
+                        ))
+                      ) : (
+                        <ContextMenuItem disabled>No permissions</ContextMenuItem>
+                      )}
+                    </ContextMenuSubContent>
+                  </ContextMenuSub>
+                  <ContextMenuSeparator />
+                  <CopyID id={server.id} />
+                  <ContextMenuItem>
+                    <ExternalLink />
+                    <Link
+                      href={`https://id.uncoverit.org?id=${server.id}`}
+                      target="_blank"
+                    >
+                      Lookup ID
+                    </Link>
+                  </ContextMenuItem>
+                </ContextMenuContent>
+              </ContextMenu>
+              <CollapsibleContent>
+                <SidebarMenuSub>
+                  {server.channels
+                    ?.filter((channel) => channel.type !== 4)
+                    .map((channel) => (
+                      <SidebarMenuSubItem key={channel.id}>
+                        <ContextMenu>
+                          <ContextMenuTrigger asChild>
+                            <SidebarMenuSubButton asChild>
+                              <Link
+                                href="#"
+                                className="font-mono text-clip min-h-8 "
+                              >
+                                <span className="text-muted-foreground">
+                                  {channel.type === 2 ? (
+                                    <Mic size={20} />
+                                  ) : channel.type === 5 ? (
+                                    <Megaphone size={20} />
+                                  ) : (
+                                    <Hash size={20} />
+                                  )}
+                                </span>
+                                {channel.name}
+                              </Link>
+                            </SidebarMenuSubButton>
+                          </ContextMenuTrigger>
+                          <ContextMenuContent className="bg-sidebar font-mono tracking-tighter">
+                            <InviteLink id={channel.id} />
+                            <ContextMenuSeparator />
+                            <CopyID id={channel.id} />
+                          </ContextMenuContent>
+                        </ContextMenu>
+                      </SidebarMenuSubItem>
+                    ))}
+                </SidebarMenuSub>
+              </CollapsibleContent>
+            </SidebarMenuItem>
+          </Collapsible>
+        );
+      })}
     </SidebarMenu>
   );
 }
@@ -290,7 +370,7 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="border-t shadow-2xl inset-shadow-xs ">
-        <Suspense fallback={<Skeleton count={1}/>}>
+        <Suspense fallback={<Skeleton count={1} />}>
           <Footer />
         </Suspense>
       </SidebarFooter>
