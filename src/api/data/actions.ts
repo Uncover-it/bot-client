@@ -92,8 +92,9 @@ export async function getInviteCode(id: number | undefined) {
       headers: {
         Authorization: `Bot ${token}`,
       },
+      cache: "force-cache",
     }
   );
-  const data = await response.json()
+  const data = await response.json();
   return data.code;
 }
