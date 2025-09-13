@@ -65,10 +65,10 @@ interface ChannelProps {
   type: number;
 }
 
-function Skeleton() {
+function Skeleton({count} : {count: number}) {
   return (
     <SidebarMenu>
-      {Array.from({ length: 5 }).map((_, index) => (
+      {Array.from({ length: count }).map((_, index) => (
         <SidebarMenuItem key={index}>
           <SidebarMenuSkeleton />
         </SidebarMenuItem>
@@ -284,13 +284,13 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent>
-        <Suspense fallback={<Skeleton />}>
+        <Suspense fallback={<Skeleton count={5} />}>
           <Servers />
         </Suspense>
       </SidebarContent>
 
       <SidebarFooter className="border-t shadow-2xl inset-shadow-xs ">
-        <Suspense fallback={<Skeleton />}>
+        <Suspense fallback={<Skeleton count={1}/>}>
           <Footer />
         </Suspense>
       </SidebarFooter>
