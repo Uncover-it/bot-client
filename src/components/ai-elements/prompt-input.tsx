@@ -46,6 +46,7 @@ import {
   useRef,
   useState,
 } from "react";
+import Image from "next/image";
 
 type AttachmentsContext = {
   files: (FileUIPart & { id: string; file?: File })[];
@@ -89,7 +90,7 @@ export function PromptInputAttachment({
       {...props}
     >
       {data.mediaType?.startsWith("image/") && data.url ? (
-        <img
+        <Image
           alt={data.filename || "attachment"}
           className="size-full rounded-md object-cover"
           height={56}
