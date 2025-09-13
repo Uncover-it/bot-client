@@ -14,9 +14,11 @@
   },
   "dependencies": {
     "@next/third-parties": "^15.6.0-canary.5",
+    "ai": "^5.0.44",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "lucide-react": "^0.543.0",
+    "lucide-react": "^0.544.0",
+    "nanoid": "^5.1.5",
     "next": "^15.6.0-canary.5",
     "next-themes": "^0.4.6",
     "radix-ui": "^1.4.3",

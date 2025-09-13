@@ -226,7 +226,7 @@ async function Servers() {
                           <ContextMenuTrigger asChild>
                             <SidebarMenuSubButton asChild>
                               <Link
-                                href="#"
+                                href={`/dashboard/channels/${channel.id}`}
                                 className="font-mono text-clip min-h-8 "
                               >
                                 <span className="text-muted-foreground">
