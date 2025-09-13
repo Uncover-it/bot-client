@@ -13,6 +13,7 @@
     "knip": "knip"
   },
   "dependencies": {
+    "@next/third-parties": "^15.6.0-canary.5",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.543.0",
