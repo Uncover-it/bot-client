@@ -49,7 +49,7 @@ export function BotSettings() {
             id="username"
             name="username"
             type="text"
-            defaultValue="iloveuncoverit!!"
+            placeholder="iloveuncoverit!!"
             onChange={(e) => setUsername(e.target.value)}
           />
         </div>
