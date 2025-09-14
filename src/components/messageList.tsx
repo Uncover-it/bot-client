@@ -9,6 +9,7 @@ import {
   MessageContent,
 } from "@/components/ai-elements/message";
 import { Response } from "@/components/ai-elements/response";
+import { toast } from "sonner";
 
 interface MessageProps {
   id: string;
@@ -62,7 +63,7 @@ export function MessageList({ id }: { id: string }) {
   }
 
   if (error) {
-    return <div className="text-red-500 text-center">{error}</div>;
+    return toast.error("Error", {description: error});
   }
 
   return (
