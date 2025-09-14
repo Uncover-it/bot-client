@@ -45,7 +45,6 @@ export function MessageList({ id }: { id: string }) {
         setMessages(fetchedMessages);
         setLoading(false);
       } catch (e) {
-        console.error("Failed to fetch messages:", e);
         setError("Failed to load messages.");
         setLoading(false);
       }
