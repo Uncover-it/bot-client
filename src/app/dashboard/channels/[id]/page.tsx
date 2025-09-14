@@ -1,11 +1,15 @@
 import MessageBox from "@/components/messagebox";
+import { MessageList } from "@/components/messageList";
 
 export default async function Page(props: { params: Promise<{ id: string }> }) {
+  const id = (await props.params).id;
   return (
-    <main className="overflow-hidden min-h-screen flex flex-col">
-      <div className="flex-1"></div>
-      <footer className="absolute bottom-0 w-full items-end p-2 flex z-50">
-        <MessageBox id={(await props.params).id} />
+    <main className="flex flex-col h-screen">
+      <div className="flex-1 overflow-y-auto">
+          <MessageList id={id} /> 
+      </div>
+      <footer className="shrink-0 p-2 pt-0 shadow-[0_-10px_15px_-3px_rgba(0,0,0,0.1),0_-4px_6px_-2px_rgba(0,0,0,0.05)] border-t z-50">
+        <MessageBox id={id} />
       </footer>
     </main>
   );

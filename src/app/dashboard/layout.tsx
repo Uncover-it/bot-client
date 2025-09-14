@@ -16,7 +16,7 @@ export default function RootLayout({
         <AppSidebar />
         <main className="relative flex-1">
           <div className="absolute top-0 left-0">
-            <SidebarTrigger className="mt-4.5 ml-1.5 shrink-0 items-center gap-2 transition-[width,height] ease-linear fixed " />
+            <SidebarTrigger className="mt-4.5 ml-1.5 shrink-0 items-center gap-2 transition-[width,height] ease-linear fixed z-50" />
           </div>
           {children}
           <Toaster position="top-right" />
