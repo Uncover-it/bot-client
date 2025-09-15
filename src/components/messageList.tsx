@@ -10,6 +10,11 @@ import {
 } from "@/components/ai-elements/message";
 import { Response } from "@/components/ai-elements/response";
 import { toast } from "sonner";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface MessageProps {
   id: string;
@@ -36,7 +41,6 @@ function MessageSkeleton() {
 export function MessageList({ id }: { id: string }) {
   const [messages, setMessages] = useState<MessageProps[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchMessages = async () => {
@@ -45,7 +49,7 @@ export function MessageList({ id }: { id: string }) {
         setMessages(fetchedMessages);
         setLoading(false);
       } catch (e) {
-        setError("Failed to load messages.");
+        toast.error("Error", { description: "Failed to load messages" })
         setLoading(false);
       }
     };
@@ -61,18 +65,22 @@ export function MessageList({ id }: { id: string }) {
     return <MessageSkeleton />;
   }
 
-  if (error) {
-    return toast.error("Error", {description: error});
-  }
-
   return (
     <div className="size-full flex flex-col-reverse justify-end p-4">
       {messages.map((message: MessageProps) => (
-        <Message from={message.author.bot ? "user" : "assistant"} key={message.id}>
-          <MessageAvatar
-            src={`https://cdn.discordapp.com/avatars/${message.author.id}/${message.author.avatar}`}
-            name={message.author.username}
-          />
+        <Message
+          from={message.author.bot ? "user" : "assistant"}
+          key={message.id}
+        >
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <MessageAvatar
+                src={`https://cdn.discordapp.com/avatars/${message.author.id}/${message.author.avatar}`}
+                name={message.author.username}
+              />
+            </TooltipTrigger>
+            <TooltipContent>{message.author.username}</TooltipContent>
+          </Tooltip>
           <MessageContent>
             <Response>{message.content}</Response>
           </MessageContent>
