@@ -170,3 +170,19 @@ export async function getMessages(id: string) {
 
   return response.json();
 }
+
+export async function setTimeout(serverId: string, userId: string, duration: string | null) {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("token")?.value;
+  const response = await fetch(`https://discord.com/api/v10/guilds/${serverId}/members/${userId}`,
+    {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bot ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({communication_disabled_until: duration})
+    }
+  )
+  return response.json();
+}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { LoaderCircle } from "lucide-react";
+import { ExternalLink, LoaderCircle, ClockPlus } from "lucide-react";
 import { getMessages } from "@/api/data/actions";
 import {
   Message,
@@ -15,6 +15,19 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuSub,
+  ContextMenuSubContent,
+  ContextMenuSubTrigger,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
+import { CopyID, CopyUsername } from "@/components/contextMenuHandellers";
+import Link from "next/link";
+import { setTimeout } from "@/api/data/actions";
 
 interface MessageProps {
   id: string;
@@ -38,18 +51,24 @@ function MessageSkeleton() {
   );
 }
 
-export function MessageList({ id }: { id: string }) {
+export function MessageList({
+  channelId,
+  serverId,
+}: {
+  channelId: string;
+  serverId: string;
+}) {
   const [messages, setMessages] = useState<MessageProps[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchMessages = async () => {
       try {
-        const fetchedMessages = await getMessages(id);
+        const fetchedMessages = await getMessages(channelId);
         setMessages(fetchedMessages);
         setLoading(false);
       } catch {
-        toast.error("Error", { description: "Failed to load messages" })
+        toast.error("Error", { description: "Failed to load messages" });
         setLoading(false);
       }
     };
@@ -59,10 +78,38 @@ export function MessageList({ id }: { id: string }) {
     const intervalId = setInterval(fetchMessages, 1500);
 
     return () => clearInterval(intervalId);
-  }, [id]);
+  }, [channelId]);
 
   if (loading) {
     return <MessageSkeleton />;
+  }
+
+  function timeout(userId: string, duration: number | null) {
+    const timeoutPromise = async () => {
+      let data;
+      if (duration == null) {
+        data = await setTimeout(serverId, userId, duration);
+      } else {
+        const date = new Date();
+        date.setMinutes(date.getMinutes() + duration);
+        const newDate = date.toISOString();
+        data = await setTimeout(serverId, userId, newDate);
+      }
+
+      if (data.message) {
+        throw new Error(data.message);
+      }
+    };
+
+    toast.promise(timeoutPromise(), {
+      loading: "Setting Timeout",
+      success: () => {
+        return `Timeout Set`;
+      },
+      error: (error) => {
+        return `Error: ${error.message}`;
+      },
+    });
   }
 
   return (
@@ -72,18 +119,89 @@ export function MessageList({ id }: { id: string }) {
           from={message.author.bot ? "user" : "assistant"}
           key={message.id}
         >
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <MessageAvatar
-                src={`https://cdn.discordapp.com/avatars/${message.author.id}/${message.author.avatar}`}
-                name={message.author.username}
-              />
-            </TooltipTrigger>
-            <TooltipContent>{message.author.username}</TooltipContent>
-          </Tooltip>
-          <MessageContent>
-            <Response>{message.content}</Response>
-          </MessageContent>
+          <ContextMenu>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <ContextMenuTrigger asChild>
+                  <MessageAvatar
+                    src={`https://cdn.discordapp.com/avatars/${message.author.id}/${message.author.avatar}`}
+                    name={message.author.username}
+                  />
+                </ContextMenuTrigger>
+              </TooltipTrigger>
+              <TooltipContent>{message.author.username}</TooltipContent>
+            </Tooltip>
+            <ContextMenuContent className="bg-sidebar font-mono tracking-tighter">
+              <ContextMenuSub>
+                <ContextMenuSubTrigger>
+                  <ClockPlus />
+                  Timeout
+                </ContextMenuSubTrigger>
+                <ContextMenuSubContent className="bg-sidebar">
+                  <ContextMenuItem
+                    onSelect={() => timeout(message.author.id, 1)}
+                  >
+                    1 Minute
+                  </ContextMenuItem>
+                  <ContextMenuItem
+                    onSelect={() => timeout(message.author.id, 5)}
+                  >
+                    5 Minutes
+                  </ContextMenuItem>
+                  <ContextMenuItem
+                    onSelect={() => timeout(message.author.id, 10)}
+                  >
+                    10 Minutes
+                  </ContextMenuItem>
+                  <ContextMenuItem
+                    onSelect={() => timeout(message.author.id, 60)}
+                  >
+                    1 Hour
+                  </ContextMenuItem>
+                  <ContextMenuItem
+                    onSelect={() => timeout(message.author.id, 1440)}
+                  >
+                    1 Day
+                  </ContextMenuItem>
+                  <ContextMenuItem
+                    onSelect={() => timeout(message.author.id, 10080)}
+                  >
+                    1 Week
+                  </ContextMenuItem>
+                  <ContextMenuSeparator />
+                  <ContextMenuItem
+                    onSelect={() => timeout(message.author.id, null)}
+                    variant="destructive"
+                  >
+                    Unmute
+                  </ContextMenuItem>
+                </ContextMenuSubContent>
+              </ContextMenuSub>
+              <ContextMenuSeparator />
+              <CopyUsername username={message.author.username} />
+              <CopyID id={Number(message.id)} />
+              <ContextMenuItem>
+                <ExternalLink />
+                <Link
+                  href={`https://id.uncoverit.org?id=${message.author.id}`}
+                  target="_blank"
+                >
+                  Lookup ID
+                </Link>
+              </ContextMenuItem>
+            </ContextMenuContent>
+          </ContextMenu>
+
+          <ContextMenu>
+            <ContextMenuTrigger asChild>
+              <MessageContent>
+                <Response>{message.content}</Response>
+              </MessageContent>
+            </ContextMenuTrigger>
+            <ContextMenuContent className="bg-sidebar font-mono tracking-tighter">
+              <CopyID id={Number(message.id)} />
+            </ContextMenuContent>
+          </ContextMenu>
         </Message>
       ))}
     </div>

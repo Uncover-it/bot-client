@@ -1,7 +1,7 @@
 "use client";
 
 import { ContextMenuItem } from "@/components/ui/context-menu";
-import { Copy, UserRoundPlus } from "lucide-react";
+import { Copy, UserRoundPlus, UserRound } from "lucide-react";
 import { toast } from "sonner";
 import { getInviteCode } from "@/api/data/actions";
 
@@ -14,6 +14,20 @@ export function CopyID({ id }: { id: number }) {
     <ContextMenuItem onSelect={() => copy()}>
       <Copy />
       Copy ID
+    </ContextMenuItem>
+  );
+}
+
+
+export function CopyUsername({ username }: { username: string }) {
+  const copy = () => {
+    navigator.clipboard.writeText(username);
+    toast.success("Copied to clipboard");
+  };
+  return (
+    <ContextMenuItem onSelect={() => copy()}>
+      <UserRound />
+      Copy Username
     </ContextMenuItem>
   );
 }
