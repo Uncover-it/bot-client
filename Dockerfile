@@ -37,21 +37,18 @@ ENV NODE_ENV=production \
     PORT=3000 \
     HOSTNAME="0.0.0.0"
 
-# create the runtime user/group using more portable commands
-RUN groupadd -r -g 1001 nodejs && \
-    useradd -r -u 1001 -g nodejs nextjs || true
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nextjs
 
 COPY --from=builder /app/public ./public
-# Copy node_modules and the full build output (.next); some projects don't produce a standalone build
-# This avoids failing when .next/standalone is not present
+
+# Automatically leverage output traces to reduce image size
 # https://nextjs.org/docs/advanced-features/output-file-tracing
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
-COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
 USER nextjs
-EXPOSE 3000
 
-# Use the project's start script (ensure "start" in package.json runs the production server)
-CMD ["bun", "run", "start"]
+EXPOSE 3000
 
 CMD ["bun", "./server.js"]
