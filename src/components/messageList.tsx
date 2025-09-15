@@ -202,15 +202,16 @@ export function MessageList({
               )}
               <CopyUsername username={message.author.username} />
               <CopyID id={Number(message.id)} />
-              <ContextMenuItem>
-                <ExternalLink />
-                <Link
-                  href={`https://id.uncoverit.org?id=${message.author.id}`}
-                  target="_blank"
-                >
+              <Link
+                href={`https://id.uncoverit.org?id=${message.author.id}`}
+                target="_blank"
+                className="cursor-not-allowed"
+              >
+                <ContextMenuItem>
+                  <ExternalLink />
                   Lookup ID
-                </Link>
-              </ContextMenuItem>
+                </ContextMenuItem>
+              </Link>
             </ContextMenuContent>
           </ContextMenu>
 
