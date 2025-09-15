@@ -48,7 +48,7 @@ export function MessageList({ id }: { id: string }) {
         const fetchedMessages = await getMessages(id);
         setMessages(fetchedMessages);
         setLoading(false);
-      } catch (e) {
+      } catch {
         toast.error("Error", { description: "Failed to load messages" })
         setLoading(false);
       }
@@ -56,7 +56,7 @@ export function MessageList({ id }: { id: string }) {
 
     fetchMessages();
 
-    const intervalId = setInterval(fetchMessages, 1000);
+    const intervalId = setInterval(fetchMessages, 1500);
 
     return () => clearInterval(intervalId);
   }, [id]);
