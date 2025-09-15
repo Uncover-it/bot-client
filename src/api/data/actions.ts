@@ -164,25 +164,60 @@ export async function getMessages(id: string) {
         Authorization: `Bot ${token}`,
         "Content-Type": "application/json",
       },
-      cache: "no-cache"
+      cache: "no-cache",
     }
   );
 
   return response.json();
 }
 
-export async function setTimeout(serverId: string, userId: string, duration: string | null) {
+export async function setTimeout(
+  serverId: string,
+  userId: string,
+  duration: string | null
+) {
   const cookieStore = await cookies();
   const token = cookieStore.get("token")?.value;
-  const response = await fetch(`https://discord.com/api/v10/guilds/${serverId}/members/${userId}`,
+  const response = await fetch(
+    `https://discord.com/api/v10/guilds/${serverId}/members/${userId}`,
     {
       method: "PATCH",
       headers: {
         Authorization: `Bot ${token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({communication_disabled_until: duration})
+      body: JSON.stringify({ communication_disabled_until: duration }),
     }
-  )
+  );
+  return response.json();
+}
+
+export async function kick(serverId: string, userId: string) {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("token")?.value;
+  const response = await fetch(
+    `https://discord.com/api/v10/guilds/${serverId}/members/${userId}`,
+    {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bot ${token}`,
+      },
+    }
+  );
+  return response.json();
+}
+
+export async function ban(serverId: string, userId: string) {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("token")?.value;
+  const response = await fetch(
+    `https://discord.com/api/v10/guilds/${serverId}/bans/${userId}`,
+    {
+      method: "PUT",
+      headers: {
+        Authorization: `Bot ${token}`,
+      },
+    }
+  );
   return response.json();
 }

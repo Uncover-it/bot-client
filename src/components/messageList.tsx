@@ -1,8 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ExternalLink, LoaderCircle, ClockPlus } from "lucide-react";
-import { getMessages } from "@/api/data/actions";
+import {
+  ExternalLink,
+  LoaderCircle,
+  ClockPlus,
+  UserRoundMinus,
+  Ban,
+} from "lucide-react";
+import { ban, getMessages } from "@/api/data/actions";
 import {
   Message,
   MessageAvatar,
@@ -27,7 +33,7 @@ import {
 } from "@/components/ui/context-menu";
 import { CopyID, CopyUsername } from "@/components/contextMenuHandellers";
 import Link from "next/link";
-import { setTimeout } from "@/api/data/actions";
+import { setTimeout, kick } from "@/api/data/actions";
 
 interface MessageProps {
   id: string;
@@ -132,52 +138,68 @@ export function MessageList({
               <TooltipContent>{message.author.username}</TooltipContent>
             </Tooltip>
             <ContextMenuContent className="bg-sidebar font-mono tracking-tighter">
-              <ContextMenuSub>
-                <ContextMenuSubTrigger>
-                  <ClockPlus />
-                  Timeout
-                </ContextMenuSubTrigger>
-                <ContextMenuSubContent className="bg-sidebar">
+              {!message.author.bot && (
+                <>
+                  <ContextMenuSub>
+                    <ContextMenuSubTrigger>
+                      <ClockPlus />
+                      Timeout
+                    </ContextMenuSubTrigger>
+                    <ContextMenuSubContent className="bg-sidebar">
+                      <ContextMenuItem
+                        onSelect={() => timeout(message.author.id, 1)}
+                      >
+                        1 Minute
+                      </ContextMenuItem>
+                      <ContextMenuItem
+                        onSelect={() => timeout(message.author.id, 5)}
+                      >
+                        5 Minutes
+                      </ContextMenuItem>
+                      <ContextMenuItem
+                        onSelect={() => timeout(message.author.id, 10)}
+                      >
+                        10 Minutes
+                      </ContextMenuItem>
+                      <ContextMenuItem
+                        onSelect={() => timeout(message.author.id, 60)}
+                      >
+                        1 Hour
+                      </ContextMenuItem>
+                      <ContextMenuItem
+                        onSelect={() => timeout(message.author.id, 1440)}
+                      >
+                        1 Day
+                      </ContextMenuItem>
+                      <ContextMenuItem
+                        onSelect={() => timeout(message.author.id, 10080)}
+                      >
+                        1 Week
+                      </ContextMenuItem>
+                      <ContextMenuSeparator />
+                      <ContextMenuItem
+                        onSelect={() => timeout(message.author.id, null)}
+                        variant="destructive"
+                      >
+                        Unmute
+                      </ContextMenuItem>
+                    </ContextMenuSubContent>
+                  </ContextMenuSub>
                   <ContextMenuItem
-                    onSelect={() => timeout(message.author.id, 1)}
-                  >
-                    1 Minute
-                  </ContextMenuItem>
-                  <ContextMenuItem
-                    onSelect={() => timeout(message.author.id, 5)}
-                  >
-                    5 Minutes
-                  </ContextMenuItem>
-                  <ContextMenuItem
-                    onSelect={() => timeout(message.author.id, 10)}
-                  >
-                    10 Minutes
-                  </ContextMenuItem>
-                  <ContextMenuItem
-                    onSelect={() => timeout(message.author.id, 60)}
-                  >
-                    1 Hour
-                  </ContextMenuItem>
-                  <ContextMenuItem
-                    onSelect={() => timeout(message.author.id, 1440)}
-                  >
-                    1 Day
-                  </ContextMenuItem>
-                  <ContextMenuItem
-                    onSelect={() => timeout(message.author.id, 10080)}
-                  >
-                    1 Week
-                  </ContextMenuItem>
-                  <ContextMenuSeparator />
-                  <ContextMenuItem
-                    onSelect={() => timeout(message.author.id, null)}
+                    onSelect={() => kick(serverId, message.author.id)}
                     variant="destructive"
                   >
-                    Unmute
+                    <UserRoundMinus /> Kick
                   </ContextMenuItem>
-                </ContextMenuSubContent>
-              </ContextMenuSub>
-              <ContextMenuSeparator />
+                  <ContextMenuItem
+                    onSelect={() => ban(serverId, message.author.id)}
+                    variant="destructive"
+                  >
+                    <Ban /> Ban
+                  </ContextMenuItem>
+                  <ContextMenuSeparator />
+                </>
+              )}
               <CopyUsername username={message.author.username} />
               <CopyID id={Number(message.id)} />
               <ContextMenuItem>
