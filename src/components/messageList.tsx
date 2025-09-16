@@ -47,18 +47,29 @@ import {
 } from "@/components/contextMenuHandellers";
 import Link from "next/link";
 import { setTimeout, kick } from "@/api/data/actions";
+import Image from "next/image";
 
 interface MessageProps {
   id: string;
   content: string;
   author: AuthorProps;
   pinned: boolean;
+  attachments?: Attachments[];
 }
 
 interface AuthorProps {
   username: string;
   bot: boolean;
   avatar: string;
+  id: string;
+}
+
+interface Attachments {
+  content_type: string;
+  proxy_url: string;
+  filename: string;
+  width: number;
+  height: number;
   id: string;
 }
 
@@ -246,6 +257,30 @@ export function MessageList({
             <ContextMenuTrigger asChild>
               <MessageContent>
                 <Response>{message.content}</Response>
+                {message.attachments &&
+                  message.attachments
+                    .filter(
+                      (attachment) =>
+                        attachment.content_type === "image/jpeg" ||
+                        attachment.content_type === "image/png" ||
+                        attachment.content_type === "image/gif"
+                    )
+                    .map((attachment) => (
+                      <Link
+                        href={attachment.proxy_url}
+                        target="_blank"
+                        key={attachment.id}
+                      >
+                        <Image
+                          src={attachment.proxy_url}
+                          alt={attachment.filename}
+                          unoptimized
+                          width={attachment.width}
+                          height={attachment.height}
+                          style={{ borderRadius: "12px" }}
+                        />
+                      </Link>
+                    ))}
               </MessageContent>
             </ContextMenuTrigger>
             <ContextMenuContent className="bg-sidebar font-mono tracking-tighter">
