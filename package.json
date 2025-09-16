@@ -13,7 +13,7 @@
     "knip": "knip"
   },
   "dependencies": {
-    "@next/third-parties": "^15.6.0-canary.8",
+    "@next/third-parties": "^15.6.0-canary.9",
     "ai": "^5.0.44",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
