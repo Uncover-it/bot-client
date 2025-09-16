@@ -236,3 +236,33 @@ export async function deleteMessage(channelId: string, messageId: string) {
   );
   return response;
 }
+
+export async function pinMessage(channelId: string, messageId: string) {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("token")?.value;
+  const response = await fetch(
+    `https://discord.com/api/v10/channels/${channelId}/pins/${messageId}`,
+    {
+      method: "PUT",
+      headers: {
+        Authorization: `Bot ${token}`,
+      },
+    }
+  );
+  return response.json();
+}
+
+export async function unpinMessage(channelId: string, messageId: string) {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("token")?.value;
+  const response = await fetch(
+    `https://discord.com/api/v10/channels/${channelId}/pins/${messageId}`,
+    {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bot ${token}`,
+      },
+    }
+  );
+  return response.json();
+}

@@ -8,8 +8,16 @@ import {
   UserRoundMinus,
   Ban,
   Trash2,
+  Pin,
+  PinOff,
 } from "lucide-react";
-import { ban, deleteMessage, getMessages } from "@/api/data/actions";
+import {
+  ban,
+  deleteMessage,
+  getMessages,
+  pinMessage,
+  unpinMessage,
+} from "@/api/data/actions";
 import {
   Message,
   MessageAvatar,
@@ -44,6 +52,7 @@ interface MessageProps {
   id: string;
   content: string;
   author: AuthorProps;
+  pinned: boolean;
 }
 
 interface AuthorProps {
@@ -240,6 +249,32 @@ export function MessageList({
               </MessageContent>
             </ContextMenuTrigger>
             <ContextMenuContent className="bg-sidebar font-mono tracking-tighter">
+              <ContextMenuItem
+                onSelect={() => {
+                  const pinPromise = async () => {
+                    if (!message.pinned) {
+                      await pinMessage(channelId, message.id);
+                    } else {
+                      await unpinMessage(channelId, message.id);
+                    }
+                  };
+
+                  toast.promise(pinPromise(), {
+                    loading: "Updating Message",
+                    success: () => "Message Updated",
+                  });
+                }}
+              >
+                {!message.pinned ? (
+                  <>
+                    <Pin /> Pin
+                  </>
+                ) : (
+                  <>
+                    <PinOff /> Unpin
+                  </>
+                )}
+              </ContextMenuItem>
               <ContextMenuItem
                 variant="destructive"
                 onSelect={() => messageDelete(message.id)}
