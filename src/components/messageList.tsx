@@ -10,6 +10,7 @@ import {
   Trash2,
   Pin,
   PinOff,
+  ImagePlus,
 } from "lucide-react";
 import {
   ban,
@@ -266,20 +267,35 @@ export function MessageList({
                         attachment.content_type === "image/gif"
                     )
                     .map((attachment) => (
-                      <Link
-                        href={attachment.proxy_url}
-                        target="_blank"
-                        key={attachment.id}
-                      >
-                        <Image
-                          src={attachment.proxy_url}
-                          alt={attachment.filename}
-                          unoptimized
-                          width={attachment.width}
-                          height={attachment.height}
-                          style={{ borderRadius: "12px" }}
-                        />
-                      </Link>
+                      <ContextMenu key={attachment.id}>
+                        <ContextMenuTrigger asChild>
+                          <Link href={attachment.proxy_url} target="_blank">
+                            <Image
+                              src={attachment.proxy_url}
+                              alt={attachment.filename}
+                              unoptimized
+                              width={attachment.width}
+                              height={attachment.height}
+                              style={{ borderRadius: "12px" }}
+                            />
+                          </Link>
+                        </ContextMenuTrigger>
+                        <ContextMenuContent className="bg-sidebar font-mono tracking-tighter">
+                          <ContextMenuItem
+                            onSelect={() => {
+                              navigator.clipboard.writeText(
+                                attachment.proxy_url
+                              );
+                              toast.success("Copied to clipboard");
+                            }}
+                          >
+                            <ImagePlus />
+                            Copy URL
+                          </ContextMenuItem>
+                          <ContextMenuSeparator />
+                          <CopyID id={attachment.id} />
+                        </ContextMenuContent>
+                      </ContextMenu>
                     ))}
               </MessageContent>
             </ContextMenuTrigger>
