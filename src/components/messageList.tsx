@@ -7,8 +7,9 @@ import {
   ClockPlus,
   UserRoundMinus,
   Ban,
+  Trash2,
 } from "lucide-react";
-import { ban, getMessages } from "@/api/data/actions";
+import { ban, deleteMessage, getMessages } from "@/api/data/actions";
 import {
   Message,
   MessageAvatar,
@@ -31,7 +32,11 @@ import {
   ContextMenuSubTrigger,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
-import { CopyID, CopyUsername } from "@/components/contextMenuHandellers";
+import {
+  CopyID,
+  CopyMessage,
+  CopyUsername,
+} from "@/components/contextMenuHandellers";
 import Link from "next/link";
 import { setTimeout, kick } from "@/api/data/actions";
 
@@ -114,6 +119,19 @@ export function MessageList({
       },
       error: (error) => {
         return `Error: ${error.message}`;
+      },
+    });
+  }
+
+  function messageDelete(messageId: string) {
+    const deletePromise = async () => {
+      await deleteMessage(channelId, messageId);
+    };
+
+    toast.promise(deletePromise(), {
+      loading: "Deleting Message",
+      success: () => {
+        return `Message deleted`;
       },
     });
   }
@@ -222,7 +240,15 @@ export function MessageList({
               </MessageContent>
             </ContextMenuTrigger>
             <ContextMenuContent className="bg-sidebar font-mono tracking-tighter">
-              <CopyID id={Number(message.id)} />
+              <ContextMenuItem
+                variant="destructive"
+                onSelect={() => messageDelete(message.id)}
+              >
+                <Trash2 /> Delete
+              </ContextMenuItem>
+              <ContextMenuSeparator />
+              <CopyMessage message={message.content} />
+              <CopyID id={message.id} />
             </ContextMenuContent>
           </ContextMenu>
         </Message>

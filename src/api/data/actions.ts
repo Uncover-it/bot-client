@@ -221,3 +221,18 @@ export async function ban(serverId: string, userId: string) {
   );
   return response.json();
 }
+
+export async function deleteMessage(channelId: string, messageId: string) {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("token")?.value;
+  const response = await fetch(
+    `https://discord.com/api/v10/channels/${channelId}/messages/${messageId}`,
+    {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bot ${token}`,
+      },
+    }
+  );
+  return response;
+}
