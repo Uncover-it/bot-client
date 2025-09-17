@@ -262,9 +262,7 @@ export function MessageList({
                   message.attachments
                     .filter(
                       (attachment) =>
-                        attachment.content_type === "image/jpeg" ||
-                        attachment.content_type === "image/png" ||
-                        attachment.content_type === "image/gif"
+                        attachment.content_type.startsWith("image/")
                     )
                     .map((attachment) => (
                       <ContextMenu key={attachment.id}>
