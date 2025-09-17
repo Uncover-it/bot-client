@@ -260,9 +260,8 @@ export function MessageList({
                 <Response>{message.content}</Response>
                 {message.attachments &&
                   message.attachments
-                    .filter(
-                      (attachment) =>
-                        attachment.content_type.startsWith("image/")
+                    .filter((attachment) =>
+                      attachment.content_type.startsWith("image/")
                     )
                     .map((attachment) => (
                       <ContextMenu key={attachment.id}>

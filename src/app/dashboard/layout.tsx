@@ -3,8 +3,6 @@ import { AppSidebar } from "@/components/sidebar";
 import { Toaster } from "@/components/ui/sonner";
 import "@/app/globals.css";
 
-export const experimental_ppr = true;
-
 export default function RootLayout({
   children,
 }: Readonly<{
