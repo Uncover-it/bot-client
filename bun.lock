@@ -4,7 +4,7 @@
     "": {
       "name": "bot-client",
       "dependencies": {
-        "@next/third-parties": "^15.6.0-canary.9",
+        "@next/third-parties": "^15.6.0-canary.10",
         "ai": "^5.0.44",
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
@@ -187,7 +187,7 @@
 
     "@next/swc-win32-x64-msvc": ["@next/swc-win32-x64-msvc@15.6.0-canary.9", "", { "os": "win32", "cpu": "x64" }, "sha512-tzzhkeJq+m6L3Z43lgpgAShJp3AmDTwpGlW7tekdXvnCggQETubwdoHEsXFgcfTdwiW9rOUOY02L5Omn3oJ3iw=="],
 
-    "@next/third-parties": ["@next/third-parties@15.6.0-canary.9", "", { "dependencies": { "third-party-capital": "1.0.20" }, "peerDependencies": { "next": "^13.0.0 || ^14.0.0 || ^15.0.0", "react": "^18.2.0 || 19.0.0-rc-de68d2f4-20241204 || ^19.0.0" } }, "sha512-eXcgP12Sj8kAK4b+fsZg185nBUiYLUEZRzrVgFJc/45Go4VLIhctf1UuTqYroncAdP0/vsSCJQtc4ZNqP8Wd0Q=="],
+    "@next/third-parties": ["@next/third-parties@15.6.0-canary.10", "", { "dependencies": { "third-party-capital": "1.0.20" }, "peerDependencies": { "next": "^13.0.0 || ^14.0.0 || ^15.0.0", "react": "^18.2.0 || 19.0.0-rc-de68d2f4-20241204 || ^19.0.0" } }, "sha512-KNEs1whRq18PRqvV+BPjesya2A+gebjOYspqANzB9105wZVfelGrlZD/EnQRojhF3Kd9b+kxnmJG2+pNGk4V/Q=="],
 
     "@nodelib/fs.scandir": ["@nodelib/fs.scandir@2.1.5", "", { "dependencies": { "@nodelib/fs.stat": "2.0.5", "run-parallel": "^1.1.9" } }, "sha512-vq24Bq3ym5HEQm2NKCr3yXDwjc7vTsEThRDnkp2DK9p1uqLR+DHurm/NOTo0KG7HYHU7eppKZj3MyqYuMBf62g=="],
 
