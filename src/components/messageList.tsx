@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ExternalLink,
   LoaderCircle,
@@ -92,6 +92,26 @@ export function MessageList({
 }) {
   const [messages, setMessages] = useState<MessageProps[]>([]);
   const [loading, setLoading] = useState(true);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const initialScrollDone = useRef(false);
+
+  const findScrollParent = (el: HTMLElement | null) => {
+    if (!el) return (document.scrollingElement || document.documentElement) as HTMLElement;
+    let parent: HTMLElement | null = el.parentElement;
+    const overflowRegex = /(auto|scroll)/;
+    while (parent) {
+      try {
+        const style = window.getComputedStyle(parent);
+        if (overflowRegex.test(style.overflowY) || overflowRegex.test(style.overflow)) {
+          return parent;
+        }
+      } catch (e) {
+        // ignore
+      }
+      parent = parent.parentElement;
+    }
+    return (document.scrollingElement || document.documentElement) as HTMLElement;
+  };
 
   useEffect(() => {
     const fetchMessages = async () => {
@@ -111,6 +131,16 @@ export function MessageList({
 
     return () => clearInterval(intervalId);
   }, [channelId]);
+
+  useEffect(() => {
+    if (!loading && !initialScrollDone.current) {
+      const el = findScrollParent(containerRef.current);
+      if (el) {
+        el.scrollTop = el.scrollHeight;
+      }
+      initialScrollDone.current = true;
+    }
+  }, [loading]);
 
   if (loading) {
     return <MessageSkeleton />;
@@ -158,7 +188,7 @@ export function MessageList({
   }
 
   return (
-    <div className="size-full flex flex-col-reverse justify-end p-4">
+    <div className="size-full flex flex-col-reverse justify-end p-4" ref={containerRef}>
       {messages.map((message: MessageProps) => (
         <Message
           from={message.author.bot ? "user" : "assistant"}
