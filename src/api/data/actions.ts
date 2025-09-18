@@ -158,7 +158,7 @@ export async function getMessages(id: string) {
   const cookieStore = await cookies();
   const token = cookieStore.get("token")?.value;
   const response = await fetch(
-    `https://discord.com/api/v10/channels/${id}/messages`,
+    `https://discord.com/api/v10/channels/${id}/messages?limit=100`,
     {
       headers: {
         Authorization: `Bot ${token}`,
