@@ -105,7 +105,7 @@ export function MessageList({
         if (overflowRegex.test(style.overflowY) || overflowRegex.test(style.overflow)) {
           return parent;
         }
-      } catch (e) {
+      } catch {
         // ignore
       }
       parent = parent.parentElement;
