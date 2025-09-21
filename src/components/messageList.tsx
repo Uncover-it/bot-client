@@ -121,7 +121,6 @@ export function MessageList({
     return (document.scrollingElement ||
       document.documentElement) as HTMLElement;
   };
-  1;
 
   useEffect(() => {
     const fetchMessages = async () => {
