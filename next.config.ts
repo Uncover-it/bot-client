@@ -5,14 +5,17 @@ const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
       {
-        hostname: "cdn.discordapp.com",
+        hostname: "*.discordapp.com",
+      },
+      {
+        hostname: "*.discordapp.net",
       },
     ],
   },
   experimental: {
     serverActions: {
-      bodySizeLimit: "100mb"
-    }
+      bodySizeLimit: "100mb",
+    },
   },
 };
 

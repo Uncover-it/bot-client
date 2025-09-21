@@ -58,6 +58,7 @@ interface MessageProps {
   author: AuthorProps;
   pinned: boolean;
   attachments?: Attachments[];
+  embeds?: EmbedProps[];
 }
 
 interface AuthorProps {
@@ -75,6 +76,28 @@ interface Attachments {
   height: number;
   id: string;
   size: number;
+}
+
+interface EmbedProps {
+  title?: string;
+  description?: string;
+  footer?: EmbedFooterProps;
+  color?: number;
+  author?: {
+    name: string;
+    proxy_icon_url?: string;
+  };
+  thumbnail?: {
+    url: string;
+  };
+  image?: {
+    url: string;
+  };
+}
+
+interface EmbedFooterProps {
+  text: string;
+  proxy_icon_url?: string;
 }
 
 function MessageSkeleton() {
@@ -300,6 +323,86 @@ export function MessageList({
             <ContextMenuTrigger asChild>
               <MessageContent>
                 <Response>{message.content}</Response>
+                {message.embeds &&
+                  message.embeds.map((embed, index) => (
+                    <div
+                      className="rounded-md overflow-hidden text-primary"
+                      style={{
+                        borderLeft: embed.color
+                          ? `4px solid #${embed.color
+                              .toString(16)
+                              .padStart(6, "0")}`
+                          : undefined,
+                      }}
+                      key={index}
+                    >
+                      <div className="bg-background p-3">
+                        {embed.author && (
+                          <div className="flex items-center gap-2 mb-1">
+                            {embed.author.proxy_icon_url && (
+                              <Image
+                                src={embed.author.proxy_icon_url}
+                                alt=""
+                                className="rounded-full"
+                                height={20}
+                                width={20}
+                              />
+                            )}
+                            <span className="text-sm font-medium">
+                              {embed.author.name}
+                            </span>
+                          </div>
+                        )}
+
+                        <div>
+                          {embed.title && (
+                            <div className="font-semibold mb-1">
+                              {embed.title}
+                            </div>
+                          )}
+                          {embed.description && (
+                            <Response className="text-sm ">
+                              {embed.description}
+                            </Response>
+                          )}
+                          {embed.image && (
+                            <div className="mt-3">
+                              <Image
+                                src={embed.image.url}
+                                alt=""
+                                className="max-w-full rounded-md max-h-[300px] object-contain"
+                              />
+                            </div>
+                          )}
+
+                          {embed.thumbnail && (
+                            <div>
+                              <img
+                                src={embed.thumbnail.url}
+                                alt=""
+                                className="rounded-md"
+                              />
+                            </div>
+                          )}
+
+                          {embed.footer && embed.footer.text && (
+                            <div className="flex items-center gap-1 mt-3 text-xs">
+                              {embed.footer.proxy_icon_url && (
+                                <Image
+                                  src={embed.footer.proxy_icon_url}
+                                  alt=""
+                                  className="rounded-full"
+                                  width={20}
+                                  height={20}
+                                />
+                              )}
+                              <span>{embed.footer.text}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 {message.attachments &&
                   message.attachments.length > 0 &&
                   (() => {
