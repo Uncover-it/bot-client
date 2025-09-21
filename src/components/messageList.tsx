@@ -49,6 +49,8 @@ import {
 import Link from "next/link";
 import { setTimeout, kick } from "@/api/data/actions";
 import Image from "next/image";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 interface MessageProps {
   id: string;
@@ -72,6 +74,7 @@ interface Attachments {
   width: number;
   height: number;
   id: string;
+  size: number;
 }
 
 function MessageSkeleton() {
@@ -96,13 +99,18 @@ export function MessageList({
   const initialScrollDone = useRef(false);
 
   const findScrollParent = (el: HTMLElement | null) => {
-    if (!el) return (document.scrollingElement || document.documentElement) as HTMLElement;
+    if (!el)
+      return (document.scrollingElement ||
+        document.documentElement) as HTMLElement;
     let parent: HTMLElement | null = el.parentElement;
     const overflowRegex = /(auto|scroll)/;
     while (parent) {
       try {
         const style = window.getComputedStyle(parent);
-        if (overflowRegex.test(style.overflowY) || overflowRegex.test(style.overflow)) {
+        if (
+          overflowRegex.test(style.overflowY) ||
+          overflowRegex.test(style.overflow)
+        ) {
           return parent;
         }
       } catch {
@@ -110,8 +118,10 @@ export function MessageList({
       }
       parent = parent.parentElement;
     }
-    return (document.scrollingElement || document.documentElement) as HTMLElement;
+    return (document.scrollingElement ||
+      document.documentElement) as HTMLElement;
   };
+  1;
 
   useEffect(() => {
     const fetchMessages = async () => {
@@ -188,7 +198,10 @@ export function MessageList({
   }
 
   return (
-    <div className="size-full flex flex-col-reverse justify-end p-4" ref={containerRef}>
+    <div
+      className="size-full flex flex-col-reverse justify-end p-4"
+      ref={containerRef}
+    >
       {messages.map((message: MessageProps) => (
         <Message
           from={message.author.bot ? "user" : "assistant"}
@@ -289,41 +302,81 @@ export function MessageList({
               <MessageContent>
                 <Response>{message.content}</Response>
                 {message.attachments &&
-                  message.attachments
-                    .filter((attachment) =>
-                      attachment.content_type.startsWith("image/")
-                    )
-                    .map((attachment) => (
-                      <ContextMenu key={attachment.id}>
-                        <ContextMenuTrigger asChild>
-                          <Link href={attachment.proxy_url} target="_blank">
-                            <Image
-                              src={attachment.proxy_url}
-                              alt={attachment.filename}
-                              unoptimized
-                              width={attachment.width}
-                              height={attachment.height}
-                              style={{ borderRadius: "12px" }}
-                            />
-                          </Link>
-                        </ContextMenuTrigger>
-                        <ContextMenuContent className="bg-sidebar font-mono tracking-tighter">
-                          <ContextMenuItem
-                            onSelect={() => {
-                              navigator.clipboard.writeText(
-                                attachment.proxy_url
-                              );
-                              toast.success("Copied to clipboard");
-                            }}
+                  message.attachments.length > 0 &&
+                  (() => {
+                    const formatBytes = (bytes: number | null) => {
+                      if (!bytes || bytes === 0) return "Unknown size";
+                      const sizes = ["Bytes", "KB", "MB", "GB", "TB"];
+                      const i = Math.floor(Math.log(bytes) / Math.log(1024));
+                      return `${parseFloat(
+                        (bytes / Math.pow(1024, i)).toFixed(2)
+                      )} ${sizes[i]}`;
+                    };
+
+                    return message.attachments
+                      .map((attachment) => {
+                        if (attachment.content_type.startsWith("image/")) {
+                          return (
+                            <ContextMenu key={attachment.id}>
+                              <ContextMenuTrigger asChild>
+                                <Link
+                                  href={attachment.proxy_url}
+                                  target="_blank"
+                                >
+                                  <Image
+                                    src={attachment.proxy_url}
+                                    alt={attachment.filename}
+                                    unoptimized
+                                    width={attachment.width}
+                                    height={attachment.height}
+                                    style={{ borderRadius: "12px" }}
+                                  />
+                                </Link>
+                              </ContextMenuTrigger>
+                              <ContextMenuContent className="bg-sidebar font-mono tracking-tighter">
+                                <ContextMenuItem
+                                  onSelect={() => {
+                                    navigator.clipboard.writeText(
+                                      attachment.proxy_url
+                                    );
+                                    toast.success("Copied to clipboard");
+                                  }}
+                                >
+                                  <ImagePlus />
+                                  Copy URL
+                                </ContextMenuItem>
+                                <ContextMenuSeparator />
+                                <CopyID id={attachment.id} />
+                              </ContextMenuContent>
+                            </ContextMenu>
+                          );
+                        }
+
+                        return (
+                          <div
+                            key={attachment.id}
+                            className="w-full flex flex-col bg-background p-5 rounded-lg"
                           >
-                            <ImagePlus />
-                            Copy URL
-                          </ContextMenuItem>
-                          <ContextMenuSeparator />
-                          <CopyID id={attachment.id} />
-                        </ContextMenuContent>
-                      </ContextMenu>
-                    ))}
+                            <span className="font-semibold text-md">
+                              {attachment.filename}
+                            </span>
+                            <span className="text-muted-foreground font-mono tracking-tighter">
+                              {formatBytes(attachment.size)}
+                            </span>
+                            <Link
+                              href={attachment.proxy_url}
+                              className={cn(
+                                "mt-1",
+                                buttonVariants({ size: "default" })
+                              )}
+                            >
+                              Download
+                            </Link>
+                          </div>
+                        );
+                      })
+                      .filter(Boolean);
+                  })()}
               </MessageContent>
             </ContextMenuTrigger>
             <ContextMenuContent className="bg-sidebar font-mono tracking-tighter">
