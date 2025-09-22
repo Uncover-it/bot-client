@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "@next/third-parties": "^15.5.3",
-    "ai": "^5.0.45",
+    "ai": "^5.0.48",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.544.0",
