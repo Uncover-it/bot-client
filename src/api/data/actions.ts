@@ -160,11 +160,13 @@ export async function getMessages(id: string) {
   const response = await fetch(
     `https://discord.com/api/v10/channels/${id}/messages?limit=100`,
     {
+      next: {
+        revalidate: 1500,
+      },
       headers: {
         Authorization: `Bot ${token}`,
         "Content-Type": "application/json",
       },
-      cache: "no-cache",
     }
   );
 
