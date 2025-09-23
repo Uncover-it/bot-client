@@ -18,19 +18,32 @@ import {
 import { useState } from "react";
 import { toast } from "sonner";
 import { sendMessage } from "@/api/data/actions";
-import { Mic } from "lucide-react";
+import { Mic, SmilePlus } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  EmojiPicker,
+  EmojiPickerSearch,
+  EmojiPickerContent,
+  EmojiPickerFooter,
+} from "@/components/ui/emoji-picker";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 export default function MessageBox({ id }: { id: string }) {
   const [text, setText] = useState<string>("");
   const [tts, setTTS] = useState<boolean>(false);
 
   const hasFileProp = (v: unknown): v is { file: File } =>
-    typeof v === "object" && v !== null && "file" in v &&
+    typeof v === "object" &&
+    v !== null &&
+    "file" in v &&
     (v as { file?: unknown }).file instanceof File;
 
   async function handleSubmit(message: {
@@ -128,6 +141,25 @@ export default function MessageBox({ id }: { id: string }) {
             </TooltipTrigger>
             <TooltipContent>TTS</TooltipContent>
           </Tooltip>
+          <Popover>
+            <PopoverTrigger asChild>
+              <PromptInputButton>
+                <SmilePlus size={16} />
+              </PromptInputButton>
+            </PopoverTrigger>
+            <PopoverContent className="w-fit p-0">
+              <EmojiPicker
+                className="isolate flex h-[368px] w-fit flex-col bg-white dark:bg-neutral-900 shadow-md"
+                onEmojiSelect={({ emoji }) => {
+                  setText((t) => t + emoji);
+                }}
+              >
+                <EmojiPickerSearch className="z-10 mx-2 mt-2 appearance-none rounded-md bg-neutral-100 px-2.5 py-2 text-sm dark:bg-neutral-800" />
+                <EmojiPickerContent />
+                <EmojiPickerFooter />
+              </EmojiPicker>
+            </PopoverContent>
+          </Popover>
         </PromptInputTools>
         <PromptInputSubmit disabled={!text} status={"ready"} />
       </PromptInputToolbar>

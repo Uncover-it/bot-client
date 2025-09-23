@@ -17,6 +17,7 @@
     "ai": "^5.0.49",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "frimousse": "^0.3.0",
     "lucide-react": "^0.544.0",
     "nanoid": "^5.1.6",
     "next": "^15.5.4",
