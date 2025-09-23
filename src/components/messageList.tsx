@@ -34,6 +34,7 @@ import {
 import {
   ContextMenu,
   ContextMenuContent,
+  ContextMenuGroup,
   ContextMenuItem,
   ContextMenuSeparator,
   ContextMenuSub,
@@ -244,78 +245,82 @@ export function MessageList({
             <ContextMenuContent className="bg-sidebar font-mono tracking-tighter">
               {!message.author.bot && (
                 <>
-                  <ContextMenuSub>
-                    <ContextMenuSubTrigger>
-                      <ClockPlus />
-                      Timeout
-                    </ContextMenuSubTrigger>
-                    <ContextMenuSubContent className="bg-sidebar">
-                      <ContextMenuItem
-                        onSelect={() => timeout(message.author.id, 1)}
-                      >
-                        1 Minute
-                      </ContextMenuItem>
-                      <ContextMenuItem
-                        onSelect={() => timeout(message.author.id, 5)}
-                      >
-                        5 Minutes
-                      </ContextMenuItem>
-                      <ContextMenuItem
-                        onSelect={() => timeout(message.author.id, 10)}
-                      >
-                        10 Minutes
-                      </ContextMenuItem>
-                      <ContextMenuItem
-                        onSelect={() => timeout(message.author.id, 60)}
-                      >
-                        1 Hour
-                      </ContextMenuItem>
-                      <ContextMenuItem
-                        onSelect={() => timeout(message.author.id, 1440)}
-                      >
-                        1 Day
-                      </ContextMenuItem>
-                      <ContextMenuItem
-                        onSelect={() => timeout(message.author.id, 10080)}
-                      >
-                        1 Week
-                      </ContextMenuItem>
-                      <ContextMenuSeparator />
-                      <ContextMenuItem
-                        onSelect={() => timeout(message.author.id, null)}
-                        variant="destructive"
-                      >
-                        Unmute
-                      </ContextMenuItem>
-                    </ContextMenuSubContent>
-                  </ContextMenuSub>
-                  <ContextMenuItem
-                    onSelect={() => kick(serverId, message.author.id)}
-                    variant="destructive"
-                  >
-                    <UserRoundMinus /> Kick
-                  </ContextMenuItem>
-                  <ContextMenuItem
-                    onSelect={() => ban(serverId, message.author.id)}
-                    variant="destructive"
-                  >
-                    <Ban /> Ban
-                  </ContextMenuItem>
+                  <ContextMenuGroup>
+                    <ContextMenuSub>
+                      <ContextMenuSubTrigger>
+                        <ClockPlus />
+                        Timeout
+                      </ContextMenuSubTrigger>
+                      <ContextMenuSubContent className="bg-sidebar">
+                        <ContextMenuItem
+                          onSelect={() => timeout(message.author.id, 1)}
+                        >
+                          1 Minute
+                        </ContextMenuItem>
+                        <ContextMenuItem
+                          onSelect={() => timeout(message.author.id, 5)}
+                        >
+                          5 Minutes
+                        </ContextMenuItem>
+                        <ContextMenuItem
+                          onSelect={() => timeout(message.author.id, 10)}
+                        >
+                          10 Minutes
+                        </ContextMenuItem>
+                        <ContextMenuItem
+                          onSelect={() => timeout(message.author.id, 60)}
+                        >
+                          1 Hour
+                        </ContextMenuItem>
+                        <ContextMenuItem
+                          onSelect={() => timeout(message.author.id, 1440)}
+                        >
+                          1 Day
+                        </ContextMenuItem>
+                        <ContextMenuItem
+                          onSelect={() => timeout(message.author.id, 10080)}
+                        >
+                          1 Week
+                        </ContextMenuItem>
+                        <ContextMenuSeparator />
+                        <ContextMenuItem
+                          onSelect={() => timeout(message.author.id, null)}
+                          variant="destructive"
+                        >
+                          Unmute
+                        </ContextMenuItem>
+                      </ContextMenuSubContent>
+                    </ContextMenuSub>
+                    <ContextMenuItem
+                      onSelect={() => kick(serverId, message.author.id)}
+                      variant="destructive"
+                    >
+                      <UserRoundMinus /> Kick
+                    </ContextMenuItem>
+                    <ContextMenuItem
+                      onSelect={() => ban(serverId, message.author.id)}
+                      variant="destructive"
+                    >
+                      <Ban /> Ban
+                    </ContextMenuItem>
+                  </ContextMenuGroup>
                   <ContextMenuSeparator />
                 </>
               )}
-              <CopyUsername username={message.author.username} />
-              <CopyID id={Number(message.id)} />
-              <Link
-                href={`https://id.uncoverit.org?id=${message.author.id}`}
-                target="_blank"
-                className="cursor-not-allowed"
-              >
-                <ContextMenuItem>
-                  <ExternalLink />
-                  Lookup ID
-                </ContextMenuItem>
-              </Link>
+              <ContextMenuGroup>
+                <CopyUsername username={message.author.username} />
+                <CopyID id={Number(message.id)} />
+                <Link
+                  href={`https://id.uncoverit.org?id=${message.author.id}`}
+                  target="_blank"
+                  className="cursor-not-allowed"
+                >
+                  <ContextMenuItem>
+                    <ExternalLink />
+                    Lookup ID
+                  </ContextMenuItem>
+                </Link>
+              </ContextMenuGroup>
             </ContextMenuContent>
           </ContextMenu>
 
@@ -482,41 +487,45 @@ export function MessageList({
               </MessageContent>
             </ContextMenuTrigger>
             <ContextMenuContent className="bg-sidebar font-mono tracking-tighter">
-              <ContextMenuItem
-                onSelect={() => {
-                  const pinPromise = async () => {
-                    if (!message.pinned) {
-                      await pinMessage(channelId, message.id);
-                    } else {
-                      await unpinMessage(channelId, message.id);
-                    }
-                  };
+              <ContextMenuGroup>
+                <ContextMenuItem
+                  onSelect={() => {
+                    const pinPromise = async () => {
+                      if (!message.pinned) {
+                        await pinMessage(channelId, message.id);
+                      } else {
+                        await unpinMessage(channelId, message.id);
+                      }
+                    };
 
-                  toast.promise(pinPromise(), {
-                    loading: "Updating Message",
-                    success: () => "Message Updated",
-                  });
-                }}
-              >
-                {!message.pinned ? (
-                  <>
-                    <Pin /> Pin
-                  </>
-                ) : (
-                  <>
-                    <PinOff /> Unpin
-                  </>
-                )}
-              </ContextMenuItem>
-              <ContextMenuItem
-                variant="destructive"
-                onSelect={() => messageDelete(message.id)}
-              >
-                <Trash2 /> Delete
-              </ContextMenuItem>
+                    toast.promise(pinPromise(), {
+                      loading: "Updating Message",
+                      success: () => "Message Updated",
+                    });
+                  }}
+                >
+                  {!message.pinned ? (
+                    <>
+                      <Pin /> Pin
+                    </>
+                  ) : (
+                    <>
+                      <PinOff /> Unpin
+                    </>
+                  )}
+                </ContextMenuItem>
+                <ContextMenuItem
+                  variant="destructive"
+                  onSelect={() => messageDelete(message.id)}
+                >
+                  <Trash2 /> Delete
+                </ContextMenuItem>
+              </ContextMenuGroup>
               <ContextMenuSeparator />
-              <CopyMessage message={message.content} />
-              <CopyID id={message.id} />
+              <ContextMenuGroup>
+                <CopyMessage message={message.content} />
+                <CopyID id={message.id} />
+              </ContextMenuGroup>
             </ContextMenuContent>
           </ContextMenu>
         </Message>

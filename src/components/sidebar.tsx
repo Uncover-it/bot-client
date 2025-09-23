@@ -47,6 +47,7 @@ import { BotSettings } from "@/components/settings";
 import {
   ContextMenu,
   ContextMenuContent,
+  ContextMenuGroup,
   ContextMenuItem,
   ContextMenuSeparator,
   ContextMenuSub,
@@ -182,46 +183,50 @@ async function Servers() {
                   </CollapsibleTrigger>
                 </ContextMenuTrigger>
                 <ContextMenuContent className="bg-sidebar font-mono tracking-tighter">
-                  <InviteLink
-                    id={
-                      server.channels.find(
-                        (channel) =>
-                          channel.type === 0 ||
-                          channel.type === 2 ||
-                          channel.type === 5
-                      )?.id
-                    }
-                  />
-                  <ContextMenuSub>
-                    <ContextMenuSubTrigger>
-                      <IdCard />
-                      Permissions
-                    </ContextMenuSubTrigger>
-                    <ContextMenuSubContent className="bg-sidebar">
-                      {enabledPermissions.length > 0 ? (
-                        enabledPermissions.map((permission) => (
-                          <ContextMenuItem key={permission}>
-                            {permission}
+                  <ContextMenuGroup>
+                    <InviteLink
+                      id={
+                        server.channels.find(
+                          (channel) =>
+                            channel.type === 0 ||
+                            channel.type === 2 ||
+                            channel.type === 5
+                        )?.id
+                      }
+                    />
+                    <ContextMenuSub>
+                      <ContextMenuSubTrigger>
+                        <IdCard />
+                        Permissions
+                      </ContextMenuSubTrigger>
+                      <ContextMenuSubContent className="bg-sidebar">
+                        {enabledPermissions.length > 0 ? (
+                          enabledPermissions.map((permission) => (
+                            <ContextMenuItem key={permission}>
+                              {permission}
+                            </ContextMenuItem>
+                          ))
+                        ) : (
+                          <ContextMenuItem disabled>
+                            No permissions
                           </ContextMenuItem>
-                        ))
-                      ) : (
-                        <ContextMenuItem disabled>
-                          No permissions
-                        </ContextMenuItem>
-                      )}
-                    </ContextMenuSubContent>
-                  </ContextMenuSub>
+                        )}
+                      </ContextMenuSubContent>
+                    </ContextMenuSub>
+                  </ContextMenuGroup>
                   <ContextMenuSeparator />
-                  <CopyID id={server.id} />
-                  <Link
-                    href={`https://id.uncoverit.org?id=${server.id}`}
-                    target="_blank"
-                  >
-                    <ContextMenuItem>
-                      <ExternalLink />
-                      Lookup ID
-                    </ContextMenuItem>
-                  </Link>
+                  <ContextMenuGroup>
+                    <CopyID id={server.id} />
+                    <Link
+                      href={`https://id.uncoverit.org?id=${server.id}`}
+                      target="_blank"
+                    >
+                      <ContextMenuItem>
+                        <ExternalLink />
+                        Lookup ID
+                      </ContextMenuItem>
+                    </Link>
+                  </ContextMenuGroup>
                 </ContextMenuContent>
               </ContextMenu>
               <CollapsibleContent>
@@ -236,6 +241,7 @@ async function Servers() {
                               <Link
                                 href={`/dashboard/servers/${server.id}/channels/${channel.id}`}
                                 className="font-mono text-clip min-h-8 "
+                                prefetch
                               >
                                 <span className="text-muted-foreground">
                                   {channel.type === 2 ? (
