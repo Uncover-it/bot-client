@@ -241,7 +241,6 @@ async function Servers() {
                               <Link
                                 href={`/dashboard/servers/${server.id}/channels/${channel.id}`}
                                 className="font-mono text-clip min-h-8 "
-                                prefetch
                               >
                                 <span className="text-muted-foreground">
                                   {channel.type === 2 ? (
