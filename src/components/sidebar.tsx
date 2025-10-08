@@ -69,6 +69,7 @@ interface ChannelProps {
   id: number;
   name: string;
   type: number;
+  position: number;
 }
 
 function Skeleton({ count }: { count: number }) {
@@ -143,7 +144,7 @@ async function Servers() {
       {data.map((server: ServerProps) => {
         const serverPermissions = BigInt(server.permissions);
         const enabledPermissions = Object.keys(permissionsMap).filter(
-          (key) => (serverPermissions & permissionsMap[key]) !== 0n
+          (key) => (serverPermissions & permissionsMap[key]) !== 0n,
         );
 
         return (
@@ -171,7 +172,7 @@ async function Servers() {
                           unoptimized
                         />
                       ) : (
-                        <div className="size-8 rounded-xl flex text-center justify-center text-lg items-center grid bg-border font-medium font-mono">
+                        <div className="size-8 rounded-xl text-center justify-center text-lg items-center grid bg-border font-medium font-mono">
                           {server.name.charAt(0).toUpperCase()}
                         </div>
                       )}
@@ -190,7 +191,7 @@ async function Servers() {
                           (channel) =>
                             channel.type === 0 ||
                             channel.type === 2 ||
-                            channel.type === 5
+                            channel.type === 5,
                         )?.id
                       }
                     />
@@ -233,6 +234,7 @@ async function Servers() {
                 <SidebarMenuSub>
                   {server.channels
                     ?.filter((channel) => channel.type !== 4)
+                    .sort((a, b) => a.position - b.position)
                     .map((channel) => (
                       <SidebarMenuSubItem key={channel.id}>
                         <ContextMenu>
@@ -367,7 +369,7 @@ export function AppSidebar() {
                   style={{ width: "25px", height: "25px" }}
                 />
               </div>
-              <div className="grid flex text-left text-md leading-tight items-center justify-center">
+              <div className="grid text-left text-md leading-tight items-center justify-center">
                 <span className="truncate font-medium">Discord Bot Client</span>
               </div>
               <ThemeToggle />

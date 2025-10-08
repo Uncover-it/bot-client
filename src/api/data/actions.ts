@@ -40,7 +40,7 @@ export async function getServers() {
       next: {
         revalidate: 120,
       },
-    }
+    },
   );
   const guilds = await guildsResponse.json();
   const guildsWithChannels = await Promise.all(
@@ -54,7 +54,7 @@ export async function getServers() {
           next: {
             revalidate: 120,
           },
-        }
+        },
       );
 
       let channels = [];
@@ -62,7 +62,7 @@ export async function getServers() {
         channels = await channelsResponse.json();
       }
       return { ...guild, channels };
-    })
+    }),
   );
 
   return guildsWithChannels;
@@ -93,7 +93,7 @@ export async function getInviteCode(id: number | undefined) {
         Authorization: `Bot ${token}`,
       },
       cache: "force-cache",
-    }
+    },
   );
   const data = await response.json();
   return data.code;
@@ -103,7 +103,7 @@ export async function sendMessage(
   id: string,
   tts: boolean,
   text?: string,
-  files?: (File | { name?: string; type?: string; data?: ArrayBuffer })[]
+  files?: (File | { name?: string; type?: string; data?: ArrayBuffer })[],
 ) {
   const cookieStore = await cookies();
   const token = cookieStore.get("token")?.value;
@@ -118,7 +118,7 @@ export async function sendMessage(
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ content: text, tts }),
-      }
+      },
     );
     return response.json();
   }
@@ -148,7 +148,7 @@ export async function sendMessage(
         Authorization: `Bot ${token}`,
       },
       body: form,
-    }
+    },
   );
 
   return response.json();
@@ -164,7 +164,7 @@ export async function getMessages(id: string) {
         Authorization: `Bot ${token}`,
         "Content-Type": "application/json",
       },
-    }
+    },
   );
 
   return response.json();
@@ -173,7 +173,7 @@ export async function getMessages(id: string) {
 export async function setTimeout(
   serverId: string,
   userId: string,
-  duration: string | null
+  duration: string | null,
 ) {
   const cookieStore = await cookies();
   const token = cookieStore.get("token")?.value;
@@ -186,7 +186,7 @@ export async function setTimeout(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ communication_disabled_until: duration }),
-    }
+    },
   );
   return response.json();
 }
@@ -201,7 +201,7 @@ export async function kick(serverId: string, userId: string) {
       headers: {
         Authorization: `Bot ${token}`,
       },
-    }
+    },
   );
   return response.json();
 }
@@ -216,7 +216,7 @@ export async function ban(serverId: string, userId: string) {
       headers: {
         Authorization: `Bot ${token}`,
       },
-    }
+    },
   );
   return response.json();
 }
@@ -231,7 +231,7 @@ export async function deleteMessage(channelId: string, messageId: string) {
       headers: {
         Authorization: `Bot ${token}`,
       },
-    }
+    },
   );
   return response;
 }
@@ -246,7 +246,7 @@ export async function pinMessage(channelId: string, messageId: string) {
       headers: {
         Authorization: `Bot ${token}`,
       },
-    }
+    },
   );
   return response.json();
 }
@@ -261,7 +261,7 @@ export async function unpinMessage(channelId: string, messageId: string) {
       headers: {
         Authorization: `Bot ${token}`,
       },
-    }
+    },
   );
   return response.json();
 }
