@@ -6,7 +6,8 @@ import { Toaster } from "@/components/ui/sonner";
 import { GoogleAnalytics } from "@next/third-parties/google";
 
 export const metadata: Metadata = {
-  alternates: { canonical: "https://bot.uncoverit.org" },
+  metadataBase: new URL("https://bot.uncoverit.org"),
+  alternates: { canonical: "/" },
   title: "Discord Bot Client",
   description: "Interact with Discord Bots online!",
   keywords: ["uncover it", "discord", "discord bots", "bot client"],
@@ -15,13 +16,6 @@ export const metadata: Metadata = {
     description: "Interact with Discord Bots online!",
     url: "https://bot.uncoverit.org",
     siteName: "Discord Bot Client",
-    images: [
-      {
-        url: "https://bot.uncoverit.org/opengraph-image.png",
-        width: 1200,
-        height: 630,
-      },
-    ],
     locale: "en_US",
     type: "website",
   },
@@ -40,7 +34,6 @@ export const metadata: Metadata = {
     title: "Discord Bot Client",
     description: "Interact with Discord Bots online!",
     card: "summary_large_image",
-    images: ["https://bot.uncoverit.org/opengraph-image.png"],
   },
 };
 
