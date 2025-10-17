@@ -21,7 +21,7 @@ export default async function Page({ params }: PageProps) {
         <MessageList channelId={channelId} serverId={serverId} />
       </div>
       <footer className="shrink-0 p-2 pt-0 shadow-[0_-10px_15px_-3px_rgba(0,0,0,0.1),0_-4px_6px_-2px_rgba(0,0,0,0.05)] border-t z-50">
-        <MessageBox id={channelId} />
+        <MessageBox channelId={channelId} serverId={serverId} />
       </footer>
     </main>
   );

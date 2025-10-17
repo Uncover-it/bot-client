@@ -104,11 +104,25 @@ export async function sendMessage(
   tts: boolean,
   text?: string,
   files?: (File | { name?: string; type?: string; data?: ArrayBuffer })[],
+  stickerId?: string,
 ) {
   const cookieStore = await cookies();
   const token = cookieStore.get("token")?.value;
 
   if (!files || files.length === 0) {
+    const payload: { content?: string; tts: boolean; sticker_ids?: string[] } =
+      {
+        tts,
+      };
+
+    if (text) {
+      payload.content = text;
+    }
+
+    if (stickerId) {
+      payload.sticker_ids = [stickerId];
+    }
+
     const response = await fetch(
       `https://discord.com/api/v10/channels/${id}/messages`,
       {
@@ -117,7 +131,7 @@ export async function sendMessage(
           Authorization: `Bot ${token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ content: text, tts }),
+        body: JSON.stringify(payload),
       },
     );
     return response.json();
@@ -125,7 +139,15 @@ export async function sendMessage(
 
   const form = new FormData();
 
-  const payload = { content: text || "", tts };
+  const payload: { content: string; tts: boolean; sticker_ids?: string[] } = {
+    content: text || "",
+    tts,
+  };
+
+  if (stickerId) {
+    payload.sticker_ids = [stickerId];
+  }
+
   form.append("payload_json", JSON.stringify(payload));
 
   for (let i = 0; i < files.length; i++) {
@@ -260,6 +282,23 @@ export async function unpinMessage(channelId: string, messageId: string) {
       method: "DELETE",
       headers: {
         Authorization: `Bot ${token}`,
+      },
+    },
+  );
+  return response.json();
+}
+
+export async function getStickers(serverId: string) {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("token")?.value;
+  const response = await fetch(
+    `https://discord.com/api/v10/guilds/${serverId}/stickers`,
+    {
+      headers: {
+        Authorization: `Bot ${token}`,
+      },
+      next: {
+        revalidate: 120,
       },
     },
   );

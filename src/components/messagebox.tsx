@@ -18,7 +18,7 @@ import {
 import { useState } from "react";
 import { toast } from "sonner";
 import { sendMessage } from "@/api/data/actions";
-import { Mic, SmilePlus } from "lucide-react";
+import { Mic, SmilePlus, Sticker } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -35,10 +35,18 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import StickerList from "@/components/stickerList";
 
-export default function MessageBox({ id }: { id: string }) {
+export default function MessageBox({
+  channelId,
+  serverId,
+}: {
+  channelId: string;
+  serverId: string;
+}) {
   const [text, setText] = useState<string>("");
   const [tts, setTTS] = useState<boolean>(false);
+  const [stickerPopoverOpen, setStickerPopoverOpen] = useState(false);
 
   const hasFileProp = (v: unknown): v is { file: File } =>
     typeof v === "object" &&
@@ -77,15 +85,16 @@ export default function MessageBox({ id }: { id: string }) {
               type: f.type,
               data: buf,
             };
-          })
+          }),
         );
       }
 
       const data = await sendMessage(
-        id,
+        channelId,
         tts,
         content,
-        serializedFiles ?? files
+        serializedFiles ?? files,
+        undefined,
       );
       if (data?.id) {
         setText("");
@@ -99,6 +108,33 @@ export default function MessageBox({ id }: { id: string }) {
       loading: "Sending",
       success: () => {
         return `Sent`;
+      },
+      error: (error) => {
+        return `Error: ${error.message}`;
+      },
+    });
+  }
+
+  async function handleStickerSend(stickerId: string) {
+    const sendPromise = async () => {
+      const data = await sendMessage(
+        channelId,
+        false,
+        undefined,
+        undefined,
+        stickerId,
+      );
+      if (data?.id) {
+        return data;
+      } else {
+        throw new Error("Failed to send sticker");
+      }
+    };
+
+    toast.promise(sendPromise(), {
+      loading: "Sending sticker",
+      success: () => {
+        return `Sticker sent`;
       },
       error: (error) => {
         return `Error: ${error.message}`;
@@ -158,6 +194,22 @@ export default function MessageBox({ id }: { id: string }) {
                 <EmojiPickerContent />
                 <EmojiPickerFooter />
               </EmojiPicker>
+            </PopoverContent>
+          </Popover>
+          <Popover
+            open={stickerPopoverOpen}
+            onOpenChange={setStickerPopoverOpen}
+          >
+            <PopoverTrigger asChild>
+              <PromptInputButton>
+                <Sticker size={15} />
+              </PromptInputButton>
+            </PopoverTrigger>
+            <PopoverContent className="w-fit p-0 dark:bg-[#171717] bg-white">
+              <StickerList
+                serverId={serverId}
+                onStickerSelectAction={handleStickerSend}
+              />
             </PopoverContent>
           </Popover>
         </PromptInputTools>
