@@ -9,8 +9,16 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://bot.uncoverit.org"),
   alternates: { canonical: "/" },
   title: "Discord Bot Client",
-  description: "Interact with Discord Bots online!",
-  keywords: ["uncover it", "discord", "discord bots", "bot client"],
+  description:
+    "Unofficial Discord Bot Client - Interact with Discord Bots online!",
+  keywords: [
+    "uncover it",
+    "discord",
+    "discord bots",
+    "bot client",
+    "discord bot client",
+    "online discord bot client",
+  ],
   openGraph: {
     title: "Discord Bot Client",
     description: "Interact with Discord Bots online!",
