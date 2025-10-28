@@ -7,6 +7,6 @@ export default function robots(): MetadataRoute.Robots {
       allow: "/",
       disallow: ["/dashboard/"],
     },
-    sitemap: "https://www.uncoverit.org/sitemap.xml",
+    sitemap: "https://bot.uncoverit.org/sitemap.xml",
   };
 }
