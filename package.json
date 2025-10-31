@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@next/third-parties": "16.0.1",
-    "ai": "^5.0.81",
+    "ai": "^5.0.83",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "frimousse": "^0.3.0",
