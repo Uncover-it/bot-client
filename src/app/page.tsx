@@ -29,7 +29,7 @@ export default function Home() {
           </Card>
         </div>
         <footer className="py-4 max-w-sm w-full">
-          <div className="flex flex-col items-center justify-between gap-4 flex-row">
+          <div className="flex flex-col items-center justify-between gap-4">
             <p className="text-sm text-muted-foreground">
               &copy; {new Date().getFullYear()} Uncover it. All rights reserved.
             </p>
