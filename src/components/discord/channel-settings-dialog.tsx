@@ -28,6 +28,7 @@ import { CHANNEL_TYPE } from "@/lib/discord/constants";
 import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import type { Channel } from "@/lib/discord/types";
+import { WebhooksSection } from "@/components/discord/webhooks-section";
 
 interface Props {
   guildId: string;
@@ -72,6 +73,12 @@ export function ChannelSettingsDialog({ guildId, channel, open, onOpenChange }: 
   const removeChannel = useRealtimeStore((s) => s.removeChannel);
   const perms = useGuildPermissions(guildId);
   const canManage = can(perms, "Manage Channels");
+  const canWebhooks = can(perms, "Manage Webhooks");
+  const supportsWebhooks =
+    channel.type === CHANNEL_TYPE.GUILD_TEXT ||
+    channel.type === CHANNEL_TYPE.GUILD_ANNOUNCEMENT ||
+    channel.type === CHANNEL_TYPE.GUILD_FORUM ||
+    channel.type === CHANNEL_TYPE.GUILD_MEDIA;
 
   async function save() {
     if (!canManage) return;
@@ -279,6 +286,11 @@ export function ChannelSettingsDialog({ guildId, channel, open, onOpenChange }: 
             </div>
           )}
         </div>
+        {supportsWebhooks && open && (
+          <div className="border-t pt-4">
+            <WebhooksSection channelId={channel.id} canManage={canWebhooks} />
+          </div>
+        )}
         <DialogFooter className="flex sm:justify-between">
           {canManage && (
             <Button variant="destructive" onClick={destroy} className="mr-auto">

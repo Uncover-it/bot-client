@@ -127,7 +127,20 @@ export interface Activity {
   type: number;
   state?: string;
   details?: string;
+  url?: string | null;
+  application_id?: Snowflake;
   emoji?: { name: string; id?: Snowflake; animated?: boolean };
+  timestamps?: { start?: number; end?: number };
+  assets?: {
+    large_image?: string;
+    large_text?: string;
+    small_image?: string;
+    small_text?: string;
+  };
+  party?: { id?: string; size?: [number, number] };
+  buttons?: string[];
+  sync_id?: string;
+  session_id?: string;
 }
 
 export interface Attachment {

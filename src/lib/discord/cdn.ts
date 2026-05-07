@@ -55,3 +55,26 @@ export function roleIconUrl(roleId: string, hash?: string | null): string | null
   if (!hash) return null;
   return `${CDN_BASE}/role-icons/${roleId}/${hash}.png`;
 }
+
+export function activityAssetUrl(
+  applicationId: string | undefined,
+  asset: string | undefined,
+): string | null {
+  if (!asset) return null;
+  if (asset.startsWith("mp:external/")) {
+    const path = asset.replace(/^mp:/, "");
+    return `https://media.discordapp.net/${path}`;
+  }
+  if (asset.startsWith("spotify:")) {
+    return `https://i.scdn.co/image/${asset.slice("spotify:".length)}`;
+  }
+  if (asset.startsWith("twitch:")) {
+    const username = asset.slice("twitch:".length);
+    return `https://static-cdn.jtvnw.net/previews-ttv/live_user_${username}.png`;
+  }
+  if (asset.startsWith("youtube:")) {
+    return `https://i.ytimg.com/vi/${asset.slice("youtube:".length)}/hqdefault.jpg`;
+  }
+  if (!applicationId) return null;
+  return `${CDN_BASE}/app-assets/${applicationId}/${asset}.png`;
+}

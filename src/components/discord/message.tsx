@@ -8,6 +8,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { MessageContent } from "@/components/discord/message-content";
 import { MessageEmbed } from "@/components/discord/message-embed";
 import { MessageAttachment } from "@/components/discord/message-attachment";
+import { MessageReactions } from "@/components/discord/message-reactions";
 import { avatarUrl, memberAvatarUrl } from "@/lib/discord/cdn";
 import { readableRoleColor } from "@/lib/discord/role-color";
 import { useResolvedTheme } from "@/hooks/use-resolved-theme";
@@ -28,6 +29,7 @@ interface Props {
   nameWrapper?: (m: Message, children: ReactNode) => ReactNode;
   onJumpReply?: (id: string) => void;
   hoverToolbar?: (m: Message) => ReactNode;
+  mobileMenu?: (m: Message) => ReactNode;
 }
 
 function timeFmt(d: string): string {
@@ -94,6 +96,7 @@ export const MessageItem = memo(function MessageItem({
   nameWrapper,
   onJumpReply,
   hoverToolbar,
+  mobileMenu,
 }: Props) {
   const grouped = shouldGroup(prev, message);
   const theme = useResolvedTheme();
@@ -127,8 +130,13 @@ export const MessageItem = memo(function MessageItem({
       )}
     >
       {hoverToolbar && (
-        <div className="absolute -top-3 right-2 md:right-4 opacity-0 group-hover/msg:opacity-100 max-md:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity z-[1] flex items-center gap-0.5 bg-popover border rounded-md shadow-sm px-1 py-0.5">
+        <div className="absolute -top-3 right-2 md:right-4 opacity-0 group-hover/msg:opacity-100 transition-opacity z-[1] hidden md:flex items-center gap-0.5 bg-popover border rounded-md shadow-sm px-1 py-0.5">
           {hoverToolbar(message)}
+        </div>
+      )}
+      {mobileMenu && (
+        <div className="absolute top-1.5 right-1 md:hidden z-[1]">
+          {mobileMenu(message)}
         </div>
       )}
       {message.message_reference && message.referenced_message && (
@@ -245,6 +253,14 @@ export const MessageItem = memo(function MessageItem({
               <MessageEmbed key={i} embed={e} />
             ))}
           </div>
+        )}
+        {guildId && message.reactions && message.reactions.length > 0 && (
+          <MessageReactions
+            guildId={guildId}
+            channelId={message.channel_id}
+            messageId={message.id}
+            reactions={message.reactions}
+          />
         )}
         </div>
       </div>

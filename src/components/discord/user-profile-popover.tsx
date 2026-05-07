@@ -31,16 +31,23 @@ import {
   getGuildMember,
   getUser,
 } from "@/api/data/actions";
-import { avatarUrl, memberAvatarUrl, userBannerUrl } from "@/lib/discord/cdn";
+import {
+  activityAssetUrl,
+  avatarUrl,
+  emojiUrl,
+  memberAvatarUrl,
+  userBannerUrl,
+} from "@/lib/discord/cdn";
 import { useGuildPermissions } from "@/hooks/use-permissions";
 import { useResolvedTheme } from "@/hooks/use-resolved-theme";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { can } from "@/lib/discord/permissions";
 import { readableRoleColor } from "@/lib/discord/role-color";
 import { STATUS_COLOR } from "@/lib/discord/constants";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import Image from "next/image";
-import type { GuildMember, User } from "@/lib/discord/types";
+import type { Activity, GuildMember, User } from "@/lib/discord/types";
 import {
   Ban,
   Check,
@@ -114,6 +121,7 @@ export function UserProfilePopover({ guildId, userId, trigger }: Props) {
   const [profile, setProfile] = useState<User | null>(
     () => userProfileCache.get(userId) ?? null,
   );
+  const isMobile = useIsMobile();
   const guild = useRealtimeStore((s) => s.guilds.get(guildId));
   const liveMember = useRealtimeStore((s) =>
     (s.members.get(guildId) ?? []).find((m) => m.user?.id === userId),
@@ -249,8 +257,8 @@ export function UserProfilePopover({ guildId, userId, trigger }: Props) {
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>{trigger}</PopoverTrigger>
       <PopoverContent
-        side="left"
-        align="start"
+        side={isMobile ? "bottom" : "left"}
+        align={isMobile ? "center" : "start"}
         sideOffset={8}
         collisionPadding={16}
         sticky="partial"
@@ -336,30 +344,20 @@ export function UserProfilePopover({ guildId, userId, trigger }: Props) {
               <div className="mt-2 text-xs flex items-center gap-1.5">
                 <span
                   className={cn(
-                    "size-2 rounded-full",
+                    "size-2 rounded-full shrink-0",
                     STATUS_COLOR[presence.status] ?? STATUS_COLOR.offline,
                   )}
                 />
                 <span className="text-muted-foreground">
                   {STATUS_LABEL[presence.status] ?? presence.status}
                 </span>
-                {presence.activities?.[0]?.name && (
-                  <>
-                    <span className="text-muted-foreground/50">·</span>
-                    <span className="text-muted-foreground">
-                      {presence.activities[0].type === 2
-                        ? "Listening to"
-                        : presence.activities[0].type === 3
-                          ? "Watching"
-                          : presence.activities[0].type === 1
-                            ? "Streaming"
-                            : "Playing"}
-                    </span>
-                    <span className="font-medium truncate">
-                      {presence.activities[0].name}
-                    </span>
-                  </>
-                )}
+              </div>
+            )}
+            {presence?.activities && presence.activities.length > 0 && (
+              <div className="mt-2 space-y-1.5">
+                {presence.activities.map((act, i) => (
+                  <ActivityCard key={i} activity={act} />
+                ))}
               </div>
             )}
             {member?.joined_at && (
@@ -569,5 +567,139 @@ export function UserProfilePopover({ guildId, userId, trigger }: Props) {
         </TooltipProvider>
       </PopoverContent>
     </Popover>
+  );
+}
+
+const ACTIVITY_VERB: Record<number, string> = {
+  0: "Playing",
+  1: "Streaming",
+  2: "Listening to",
+  3: "Watching",
+  5: "Competing in",
+};
+
+function fmtElapsed(start: number, now: number): string {
+  const ms = Math.max(0, now - start);
+  const sec = Math.floor(ms / 1000);
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  const h = Math.floor(m / 60);
+  if (h > 0) return `${h}:${String(m % 60).padStart(2, "0")}:${String(s).padStart(2, "0")} elapsed`;
+  return `${m}:${String(s).padStart(2, "0")} elapsed`;
+}
+
+function ActivityCard({ activity }: { activity: Activity }) {
+  const now = useSyncExternalStore(subscribeNow, getNowSnapshot, getNowServerSnapshot);
+
+  if (activity.type === 4) {
+    const emojiSrc =
+      activity.emoji?.id != null
+        ? emojiUrl(activity.emoji.id, !!activity.emoji.animated)
+        : null;
+    return (
+      <div className="flex items-center gap-2 text-xs">
+        {emojiSrc ? (
+          <Image
+            src={emojiSrc}
+            alt={activity.emoji?.name ?? ""}
+            width={18}
+            height={18}
+            unoptimized
+            className="shrink-0"
+          />
+        ) : activity.emoji?.name ? (
+          <span className="text-base leading-none shrink-0">{activity.emoji.name}</span>
+        ) : null}
+        <span className="break-words">{activity.state ?? ""}</span>
+      </div>
+    );
+  }
+
+  const verb = ACTIVITY_VERB[activity.type] ?? "Playing";
+  const isSpotify = activity.name === "Spotify" || activity.type === 2;
+  const largeAsset = activityAssetUrl(activity.application_id, activity.assets?.large_image);
+  const smallAsset = activityAssetUrl(activity.application_id, activity.assets?.small_image);
+
+  return (
+    <div className="rounded-md border bg-muted/30 p-2.5 text-xs">
+      <div className="text-[10px] uppercase font-semibold tracking-[0.18em] text-muted-foreground mb-1.5">
+        {verb}
+      </div>
+      <div className="flex gap-2.5">
+        {largeAsset ? (
+          <div className="relative size-14 shrink-0">
+            <Image
+              src={largeAsset}
+              alt={activity.assets?.large_text ?? activity.name}
+              fill
+              unoptimized
+              sizes="56px"
+              className="rounded object-cover"
+            />
+            {smallAsset && (
+              <Image
+                src={smallAsset}
+                alt={activity.assets?.small_text ?? ""}
+                width={20}
+                height={20}
+                unoptimized
+                className="rounded-full absolute -bottom-1 -right-1 ring-2 ring-popover bg-popover"
+              />
+            )}
+          </div>
+        ) : (
+          <div
+            className={cn(
+              "size-14 shrink-0 rounded grid place-items-center text-lg font-bold",
+              isSpotify ? "bg-[#1DB954] text-black" : "bg-muted text-muted-foreground",
+            )}
+          >
+            {isSpotify ? "♪" : activity.name.charAt(0).toUpperCase()}
+          </div>
+        )}
+        <div className="min-w-0 flex-1">
+          <div className="font-semibold truncate">{activity.name}</div>
+          {activity.details && (
+            <div className="truncate text-muted-foreground">{activity.details}</div>
+          )}
+          {activity.state && (
+            <div className="truncate text-muted-foreground">{activity.state}</div>
+          )}
+          {activity.timestamps?.start && !activity.timestamps?.end && now > 0 && (
+            <div className="text-[10px] font-mono text-muted-foreground/80 mt-0.5">
+              {fmtElapsed(activity.timestamps.start, now)}
+            </div>
+          )}
+          {activity.timestamps?.start && activity.timestamps?.end && now > 0 && (
+            <SpotifyBar
+              start={activity.timestamps.start}
+              end={activity.timestamps.end}
+              now={now}
+            />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SpotifyBar({ start, end, now }: { start: number; end: number; now: number }) {
+  const total = Math.max(1, end - start);
+  const elapsed = Math.min(total, Math.max(0, now - start));
+  const pct = (elapsed / total) * 100;
+  const fmt = (ms: number) => {
+    const s = Math.floor(ms / 1000);
+    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+  };
+  return (
+    <div className="mt-1">
+      <div className="h-0.5 bg-muted rounded-full overflow-hidden">
+        <div className="h-full bg-foreground/70" style={{ width: `${pct}%` }} />
+      </div>
+      <div className="flex justify-between text-[9px] font-mono text-muted-foreground mt-0.5">
+        <span>{fmt(elapsed)}</span>
+        <span>{fmt(total)}</span>
+      </div>
+    </div>
   );
 }

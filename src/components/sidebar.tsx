@@ -15,7 +15,6 @@ import {
   Mic,
   Radio,
   Settings,
-  Webhook,
 } from "lucide-react";
 import {
   Sidebar,
@@ -73,7 +72,6 @@ import { CHANNEL_TYPE } from "@/lib/discord/constants";
 import { can, listPermissions } from "@/lib/discord/permissions";
 import { useGuildPermissions } from "@/hooks/use-permissions";
 import { ChannelSettingsDialog } from "@/components/discord/channel-settings-dialog";
-import { WebhooksDialog } from "@/components/discord/webhooks-dialog";
 import { avatarUrl, guildIconUrl } from "@/lib/discord/cdn";
 import type { Channel, Guild } from "@/lib/discord/types";
 
@@ -336,16 +334,9 @@ function CategoryGroup({
 
 function ChannelLink({ guildId, channel }: { guildId: string; channel: Channel }) {
   const [editOpen, setEditOpen] = useState(false);
-  const [webhooksOpen, setWebhooksOpen] = useState(false);
   const perms = useGuildPermissions(guildId);
   const canManage = can(perms, "Manage Channels");
-  const canWebhooks = can(perms, "Manage Webhooks");
   const { isMobile, setOpenMobile } = useSidebar();
-  const supportsWebhooks =
-    channel.type === CHANNEL_TYPE.GUILD_TEXT ||
-    channel.type === CHANNEL_TYPE.GUILD_ANNOUNCEMENT ||
-    channel.type === CHANNEL_TYPE.GUILD_FORUM ||
-    channel.type === CHANNEL_TYPE.GUILD_MEDIA;
   const Icon =
     channel.type === CHANNEL_TYPE.GUILD_VOICE
       ? Mic
@@ -387,17 +378,6 @@ function ChannelLink({ guildId, channel }: { guildId: string; channel: Channel }
             </>
           )}
           <InviteLink id={channel.id} />
-          {supportsWebhooks && canWebhooks && (
-            <ContextMenuItem
-              onSelect={(e) => {
-                e.preventDefault();
-                setWebhooksOpen(true);
-              }}
-            >
-              <Webhook />
-              Webhooks
-            </ContextMenuItem>
-          )}
           <ContextMenuSeparator />
           <CopyID id={channel.id} />
         </ContextMenuContent>
@@ -408,14 +388,6 @@ function ChannelLink({ guildId, channel }: { guildId: string; channel: Channel }
           channel={channel}
           open={editOpen}
           onOpenChange={setEditOpen}
-        />
-      )}
-      {supportsWebhooks && (
-        <WebhooksDialog
-          channelId={channel.id}
-          channelName={channel.name}
-          open={webhooksOpen}
-          onOpenChange={setWebhooksOpen}
         />
       )}
     </SidebarMenuSubItem>

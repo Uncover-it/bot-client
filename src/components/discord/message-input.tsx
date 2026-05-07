@@ -413,7 +413,7 @@ export function MessageInput({
   }, [canSend, channelName]);
 
   return (
-    <div className="border rounded-xl bg-background overflow-hidden relative">
+    <div className="border rounded-xl bg-background relative">
       {trigger.char && (
         <div className="absolute bottom-full mb-2 left-0 right-0 mx-3 border bg-popover rounded-md shadow-lg z-30 overflow-hidden">
           <div className="px-3 py-1 border-b text-[10px] uppercase tracking-[0.18em] font-mono text-muted-foreground flex items-center justify-between">
@@ -634,19 +634,6 @@ export function MessageInput({
             <StickerList serverId={serverId} onStickerSelectAction={sendSticker} />
           </PopoverContent>
         </Popover>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              type="button"
-              onClick={() => insertAtCaret("@")}
-              className="text-muted-foreground hover:text-foreground text-xs px-2 h-8 rounded-md hover:bg-muted"
-              disabled={!canSend}
-            >
-              @
-            </button>
-          </TooltipTrigger>
-          <TooltipContent>Mention user</TooltipContent>
-        </Tooltip>
         <div className="flex-1" />
         {slowmode > 0 && (
           <span className="text-[10px] text-muted-foreground font-mono">{slowmode}s slow</span>

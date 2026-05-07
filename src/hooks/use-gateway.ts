@@ -178,5 +178,41 @@ function handleDispatch(event: string, data: unknown) {
       s.setTyping(d.channel_id, d.user_id);
       break;
     }
+    case "MESSAGE_REACTION_ADD": {
+      const d = data as {
+        user_id: string;
+        channel_id: string;
+        message_id: string;
+        emoji: { id?: string | null; name?: string | null; animated?: boolean };
+      };
+      const me = useRealtimeStore.getState().user?.id;
+      s.addReaction(d.channel_id, d.message_id, d.emoji, d.user_id === me);
+      break;
+    }
+    case "MESSAGE_REACTION_REMOVE": {
+      const d = data as {
+        user_id: string;
+        channel_id: string;
+        message_id: string;
+        emoji: { id?: string | null; name?: string | null };
+      };
+      const me = useRealtimeStore.getState().user?.id;
+      s.removeReaction(d.channel_id, d.message_id, d.emoji, d.user_id === me);
+      break;
+    }
+    case "MESSAGE_REACTION_REMOVE_ALL": {
+      const d = data as { channel_id: string; message_id: string };
+      s.removeAllReactions(d.channel_id, d.message_id);
+      break;
+    }
+    case "MESSAGE_REACTION_REMOVE_EMOJI": {
+      const d = data as {
+        channel_id: string;
+        message_id: string;
+        emoji: { id?: string | null; name?: string | null };
+      };
+      s.removeReactionEmoji(d.channel_id, d.message_id, d.emoji);
+      break;
+    }
   }
 }

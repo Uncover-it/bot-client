@@ -8,6 +8,9 @@ const nextConfig: NextConfig = {
       { hostname: "*.discordapp.net" },
       { hostname: "cdn.discordapp.com" },
       { hostname: "media.discordapp.net" },
+      { hostname: "i.scdn.co" },
+      { hostname: "i.ytimg.com" },
+      { hostname: "static-cdn.jtvnw.net" },
     ],
   },
   experimental: {

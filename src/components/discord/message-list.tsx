@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/context-menu";
 import { Button } from "@/components/ui/button";
 import {
+  addReaction,
   ban,
   deleteMessage,
   getMessages,
@@ -38,7 +39,14 @@ import {
   Ban,
   Reply,
   MoreHorizontal,
+  SmilePlus,
 } from "lucide-react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { EmojiPickerPro } from "@/components/discord/emoji-picker-pro";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -86,6 +94,7 @@ export function MessageList({ channelId, serverId, postStarterId, onReply }: Pro
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [exhausted, setExhausted] = useState(false);
   const [atBottom, setAtBottom] = useState(true);
+  const [reactingId, setReactingId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const jumpTo = useCallback((id: string) => {
@@ -167,6 +176,31 @@ export function MessageList({ channelId, serverId, postStarterId, onReply }: Pro
   const renderHoverToolbar = useCallback(
     (msg: Message) => (
       <>
+        <Popover>
+          <PopoverTrigger asChild>
+            <button
+              className="size-8 md:size-6 grid place-items-center rounded hover:bg-muted text-muted-foreground hover:text-foreground"
+              title="Add reaction"
+              aria-label="Add reaction"
+            >
+              <SmilePlus className="size-4 md:size-3" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-fit p-0" align="end">
+            <EmojiPickerPro
+              guildId={serverId}
+              onSelect={async (token) => {
+                const m = token.match(/^<(a)?:([\w~]+):(\d+)>$/);
+                const key = m ? `${m[2]}:${m[3]}` : token;
+                try {
+                  await addReaction(channelId, msg.id, key);
+                } catch (e) {
+                  toast.error(e instanceof Error ? e.message : "Failed to add reaction");
+                }
+              }}
+            />
+          </PopoverContent>
+        </Popover>
         <button
           onClick={() =>
             onReply({
@@ -208,17 +242,60 @@ export function MessageList({ channelId, serverId, postStarterId, onReply }: Pro
             <Trash2 className="size-4 md:size-3" />
           </button>
         )}
+      </>
+    ),
+    [onReply, channelId, canManageMessages, serverId],
+  );
+
+  const renderMobileMenu = useCallback(
+    (msg: Message) => {
+      const selfId = useRealtimeStore.getState().user?.id;
+      const canDelete = msg.author.id === selfId || canManageMessages;
+      return (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
-              className="size-8 md:hidden grid place-items-center rounded hover:bg-muted text-muted-foreground hover:text-foreground"
-              title="More"
-              aria-label="More actions"
+              className="size-7 grid place-items-center rounded-md bg-popover/80 backdrop-blur border text-muted-foreground hover:text-foreground hover:bg-muted shadow-sm"
+              title="Actions"
+              aria-label="Message actions"
             >
               <MoreHorizontal className="size-4" />
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="bg-sidebar font-mono tracking-tighter">
+            <DropdownMenuItem onSelect={() => setReactingId(msg.id)}>
+              <SmilePlus className="mr-2 size-4" /> Add reaction
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={() =>
+                onReply({
+                  id: msg.id,
+                  author: msg.author.global_name ?? msg.author.username,
+                  content: msg.content || "[attachment]",
+                })
+              }
+            >
+              <Reply className="mr-2 size-4" /> Reply
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={() => {
+                const p = async () => {
+                  if (!msg.pinned) await pinMessage(channelId, msg.id);
+                  else await unpinMessage(channelId, msg.id);
+                };
+                toast.promise(p(), { loading: "Updating", success: "Done" });
+              }}
+            >
+              {msg.pinned ? (
+                <>
+                  <PinOff className="mr-2 size-4" /> Unpin
+                </>
+              ) : (
+                <>
+                  <Pin className="mr-2 size-4" /> Pin
+                </>
+              )}
+            </DropdownMenuItem>
             <DropdownMenuItem
               onSelect={() => {
                 navigator.clipboard.writeText(msg.content ?? "");
@@ -235,10 +312,21 @@ export function MessageList({ channelId, serverId, postStarterId, onReply }: Pro
             >
               <IdCard className="mr-2 size-4" /> Copy ID
             </DropdownMenuItem>
+            {canDelete && (
+              <DropdownMenuItem
+                variant="destructive"
+                onSelect={() => {
+                  const p = async () => deleteMessage(channelId, msg.id);
+                  toast.promise(p(), { loading: "Deleting", success: "Deleted" });
+                }}
+              >
+                <Trash2 className="mr-2 size-4" /> Delete
+              </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
-      </>
-    ),
+      );
+    },
     [onReply, channelId, canManageMessages],
   );
 
@@ -349,6 +437,11 @@ export function MessageList({ channelId, serverId, postStarterId, onReply }: Pro
         <ContextMenuContent className="bg-sidebar font-mono tracking-tighter">
           <ContextMenuGroup>
             <ContextMenuItem
+              onSelect={() => setReactingId(msg.id)}
+            >
+              <SmilePlus /> Add reaction
+            </ContextMenuItem>
+            <ContextMenuItem
               onSelect={() =>
                 onReply({
                   id: msg.id,
@@ -396,7 +489,7 @@ export function MessageList({ channelId, serverId, postStarterId, onReply }: Pro
         </ContextMenuContent>
       </ContextMenu>
     ),
-    [guild, onReply, channelId],
+    [guild, onReply, channelId, botUserId],
   );
 
   const typingNames = useMemo(() => {
@@ -471,6 +564,7 @@ export function MessageList({ channelId, serverId, postStarterId, onReply }: Pro
                 isPostStarter={isPostStarter}
                 onJumpReply={jumpTo}
                 hoverToolbar={renderHoverToolbar}
+                mobileMenu={renderMobileMenu}
                 authorMenu={renderAuthorMenu}
                 nameWrapper={renderNameWrapper}
                 contextMenu={renderContextMenu}
@@ -492,6 +586,33 @@ export function MessageList({ channelId, serverId, postStarterId, onReply }: Pro
         >
           <ChevronDown className="size-4 mr-1" /> Jump to present
         </Button>
+      )}
+      {reactingId && (
+        <div
+          className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4"
+          onClick={() => setReactingId(null)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-popover border rounded-md shadow-lg max-w-[calc(100vw-2rem)]"
+          >
+            <EmojiPickerPro
+              guildId={serverId}
+              onSelect={async (token) => {
+                const id = reactingId;
+                setReactingId(null);
+                if (!id) return;
+                const m = token.match(/^<(a)?:([\w~]+):(\d+)>$/);
+                const key = m ? `${m[2]}:${m[3]}` : token;
+                try {
+                  await addReaction(channelId, id, key);
+                } catch (e) {
+                  toast.error(e instanceof Error ? e.message : "Failed to add reaction");
+                }
+              }}
+            />
+          </div>
+        </div>
       )}
       {typingNames.length > 0 && (
         <div className="px-4 py-1 text-xs text-muted-foreground italic flex items-center gap-2 border-t bg-background">

@@ -314,7 +314,7 @@ function ChannelsPane({ guildId }: { guildId: string }) {
   const sorted = [...channels].sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
 
   return (
-    <div className="max-w-3xl space-y-4">
+    <div className="max-w-3xl space-y-4 min-w-0">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-semibold">Channels ({channels.length})</h2>
         {canManage && (
@@ -442,7 +442,7 @@ function RolesPane({ guildId }: { guildId: string }) {
   }
 
   return (
-    <div className="max-w-3xl space-y-4">
+    <div className="max-w-3xl space-y-4 min-w-0">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-semibold">Roles ({roles.length})</h2>
         {canManage && (
@@ -454,35 +454,41 @@ function RolesPane({ guildId }: { guildId: string }) {
       {!canManage && (
         <p className="text-xs text-muted-foreground">Read-only — bot lacks Manage Roles.</p>
       )}
-      <div className="border rounded-md divide-y">
+      <div className="border rounded-md divide-y min-w-0">
         {roles.map((r) => (
-          <div key={r.id} className="flex items-center gap-3 p-3 group hover:bg-muted/30">
+          <div
+            key={r.id}
+            className="flex items-center gap-2 p-2 sm:p-3 group hover:bg-muted/30 min-w-0"
+          >
             <span
-              className="size-3 rounded-full ring-1 ring-border"
+              className="size-3 rounded-full ring-1 ring-border shrink-0"
               style={{
                 background: r.color
                   ? "#" + r.color.toString(16).padStart(6, "0")
                   : "var(--muted-foreground)",
               }}
             />
-            <span className="font-medium">{r.name}</span>
+            <span className="font-medium truncate min-w-0">{r.name}</span>
             {r.hoist && (
-              <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-[0.18em]">
+              <span className="hidden sm:inline text-[10px] uppercase font-bold text-muted-foreground tracking-[0.18em] shrink-0">
                 Hoisted
               </span>
             )}
             {r.managed && (
-              <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-[0.18em] inline-flex items-center gap-1">
-                <Crown className="size-3" /> Managed
+              <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-[0.18em] inline-flex items-center gap-1 shrink-0">
+                <Crown className="size-3" />
+                <span className="hidden sm:inline">Managed</span>
               </span>
             )}
-            <span className="ml-auto text-xs text-muted-foreground font-mono">{r.id}</span>
+            <span className="ml-auto hidden md:inline text-xs text-muted-foreground font-mono truncate max-w-[14ch] shrink-0">
+              {r.id}
+            </span>
             {canManage && (
-              <>
+              <div className="flex items-center gap-0.5 shrink-0 ml-auto md:ml-0">
                 <Button
                   size="icon"
                   variant="ghost"
-                  className="md:opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100"
+                  className="size-8 md:opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100"
                   onClick={() => setEditing(r)}
                 >
                   <Settings className="size-4" />
@@ -491,13 +497,13 @@ function RolesPane({ guildId }: { guildId: string }) {
                   <Button
                     size="icon"
                     variant="ghost"
-                    className="md:opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100"
+                    className="size-8 md:opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100"
                     onClick={() => handleDelete(r)}
                   >
                     <Trash2 className="size-4 text-destructive" />
                   </Button>
                 )}
-              </>
+              </div>
             )}
           </div>
         ))}
@@ -579,7 +585,7 @@ function BansPane({ guildId }: { guildId: string }) {
   });
 
   return (
-    <div className="max-w-3xl space-y-4">
+    <div className="max-w-3xl space-y-4 min-w-0">
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-xl font-semibold">Bans {bans ? `(${bans.length})` : ""}</h2>
       </div>
@@ -818,7 +824,7 @@ function AuditPane({ guildId }: { guildId: string }) {
   const oldestId = entries[entries.length - 1]?.id;
 
   return (
-    <div className="max-w-3xl space-y-4">
+    <div className="max-w-3xl space-y-4 min-w-0">
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-2">
           <ScrollText className="size-5" />
@@ -970,7 +976,7 @@ function PermsPane({ guildId }: { guildId: string }) {
   const guild = useRealtimeStore((s) => s.guilds.get(guildId));
   const allowed = guild?.permissions ? listPermissions(guild.permissions) : [];
   return (
-    <div className="max-w-3xl space-y-4">
+    <div className="max-w-3xl space-y-4 min-w-0">
       <div className="flex items-center gap-2">
         <ShieldCheck className="size-5" />
         <h2 className="text-xl font-semibold">Bot permissions</h2>

@@ -48,6 +48,24 @@ interface State {
   setMembers: (guildId: string, members: GuildMember[]) => void;
   upsertMember: (guildId: string, member: GuildMember) => void;
   removeMember: (guildId: string, userId: string) => void;
+  addReaction: (
+    channelId: string,
+    messageId: string,
+    emoji: { id?: string | null; name?: string | null; animated?: boolean },
+    byMe: boolean,
+  ) => void;
+  removeReaction: (
+    channelId: string,
+    messageId: string,
+    emoji: { id?: string | null; name?: string | null },
+    byMe: boolean,
+  ) => void;
+  removeReactionEmoji: (
+    channelId: string,
+    messageId: string,
+    emoji: { id?: string | null; name?: string | null },
+  ) => void;
+  removeAllReactions: (channelId: string, messageId: string) => void;
   upsertPresence: (guildId: string, presence: Presence) => void;
   setPresences: (guildId: string, presences: Presence[]) => void;
   setTyping: (channelId: string, userId: string) => void;
@@ -223,6 +241,91 @@ export const useRealtimeStore = create<State>((set) => ({
         cur.filter((m) => m.user?.id !== userId),
       );
       return { members: next };
+    }),
+  addReaction: (channelId, messageId, emoji, byMe) =>
+    set((state) => {
+      const next = new Map(state.messages);
+      const cur = next.get(channelId);
+      if (!cur) return {};
+      const updated = cur.map((msg) => {
+        if (msg.id !== messageId) return msg;
+        const reactions = [...(msg.reactions ?? [])];
+        const idx = reactions.findIndex((r) =>
+          emoji.id ? r.emoji.id === emoji.id : !r.emoji.id && r.emoji.name === emoji.name,
+        );
+        if (idx >= 0) {
+          const r = reactions[idx];
+          if (byMe && r.me) {
+            return msg;
+          }
+          reactions[idx] = {
+            ...r,
+            count: r.count + 1,
+            me: r.me || byMe,
+          };
+        } else {
+          reactions.push({
+            count: 1,
+            me: byMe,
+            emoji: {
+              id: emoji.id ?? null,
+              name: emoji.name ?? null,
+              animated: emoji.animated ?? false,
+            },
+          });
+        }
+        return { ...msg, reactions };
+      });
+      next.set(channelId, updated);
+      return { messages: next };
+    }),
+  removeReaction: (channelId, messageId, emoji, byMe) =>
+    set((state) => {
+      const next = new Map(state.messages);
+      const cur = next.get(channelId);
+      if (!cur) return {};
+      const updated = cur.map((msg) => {
+        if (msg.id !== messageId) return msg;
+        const reactions = (msg.reactions ?? []).flatMap((r) => {
+          const match = emoji.id
+            ? r.emoji.id === emoji.id
+            : !r.emoji.id && r.emoji.name === emoji.name;
+          if (!match) return [r];
+          if (byMe && !r.me) return [r];
+          const count = Math.max(0, r.count - 1);
+          if (count === 0) return [];
+          return [{ ...r, count, me: byMe ? false : r.me }];
+        });
+        return { ...msg, reactions };
+      });
+      next.set(channelId, updated);
+      return { messages: next };
+    }),
+  removeReactionEmoji: (channelId, messageId, emoji) =>
+    set((state) => {
+      const next = new Map(state.messages);
+      const cur = next.get(channelId);
+      if (!cur) return {};
+      const updated = cur.map((msg) => {
+        if (msg.id !== messageId) return msg;
+        const reactions = (msg.reactions ?? []).filter((r) =>
+          emoji.id ? r.emoji.id !== emoji.id : r.emoji.id || r.emoji.name !== emoji.name,
+        );
+        return { ...msg, reactions };
+      });
+      next.set(channelId, updated);
+      return { messages: next };
+    }),
+  removeAllReactions: (channelId, messageId) =>
+    set((state) => {
+      const next = new Map(state.messages);
+      const cur = next.get(channelId);
+      if (!cur) return {};
+      const updated = cur.map((msg) =>
+        msg.id === messageId ? { ...msg, reactions: [] } : msg,
+      );
+      next.set(channelId, updated);
+      return { messages: next };
     }),
   upsertPresence: (guildId, presence) =>
     set((state) => {
