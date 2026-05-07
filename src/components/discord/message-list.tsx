@@ -60,7 +60,6 @@ import {
   CopyUsername,
 } from "@/components/contextMenuHandellers";
 import { MessageItem } from "@/components/discord/message";
-import { MessageContent } from "@/components/discord/message-content";
 import { UserProfilePopover } from "@/components/discord/user-profile-popover";
 import { IntentBanner } from "@/components/discord/intent-warning";
 import { useRealtimeStore } from "@/lib/store";
@@ -147,11 +146,22 @@ export function MessageList({ channelId, serverId, postStarterId, onReply }: Pro
   async function loadOlder() {
     if (!messages?.length) return;
     setLoadingOlder(true);
+    const el = scrollRef.current;
+    const prevHeight = el?.scrollHeight ?? 0;
+    const prevTop = el?.scrollTop ?? 0;
     try {
       const oldest = messages[messages.length - 1];
       const older: Message[] = await getMessages(channelId, oldest.id);
-      if (Array.isArray(older) && older.length) prepend(channelId, older);
-      else setExhausted(true);
+      if (Array.isArray(older) && older.length) {
+        prepend(channelId, older);
+        requestAnimationFrame(() => {
+          const cur = scrollRef.current;
+          if (!cur) return;
+          cur.scrollTop = cur.scrollHeight - prevHeight + prevTop;
+        });
+      } else {
+        setExhausted(true);
+      }
     } finally {
       setLoadingOlder(false);
     }
@@ -422,18 +432,9 @@ export function MessageList({ channelId, serverId, postStarterId, onReply }: Pro
   );
 
   const renderContextMenu = useCallback(
-    (msg: Message) => (
+    (msg: Message, children: React.ReactNode) => (
       <ContextMenu>
-        <ContextMenuTrigger asChild>
-          <div className="min-w-0 break-words">
-            {msg.content && (
-              <MessageContent message={msg} guild={guild} selfUserId={botUserId} />
-            )}
-            {msg.edited_timestamp && (
-              <span className="text-[10px] text-muted-foreground ml-1">(edited)</span>
-            )}
-          </div>
-        </ContextMenuTrigger>
+        <ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
         <ContextMenuContent className="bg-sidebar font-mono tracking-tighter">
           <ContextMenuGroup>
             <ContextMenuItem
@@ -489,7 +490,7 @@ export function MessageList({ channelId, serverId, postStarterId, onReply }: Pro
         </ContextMenuContent>
       </ContextMenu>
     ),
-    [guild, onReply, channelId, botUserId],
+    [onReply, channelId],
   );
 
   const typingNames = useMemo(() => {
@@ -567,7 +568,7 @@ export function MessageList({ channelId, serverId, postStarterId, onReply }: Pro
                 mobileMenu={renderMobileMenu}
                 authorMenu={renderAuthorMenu}
                 nameWrapper={renderNameWrapper}
-                contextMenu={renderContextMenu}
+                rowContextMenu={renderContextMenu}
               />
             );
           })}

@@ -24,7 +24,7 @@ interface Props {
   storeMember?: GuildMember;
   mentionsMe?: boolean;
   isPostStarter?: boolean;
-  contextMenu?: (m: Message) => React.ReactNode;
+  rowContextMenu?: (m: Message, children: ReactNode) => ReactNode;
   authorMenu?: (m: Message) => React.ReactNode;
   nameWrapper?: (m: Message, children: ReactNode) => ReactNode;
   onJumpReply?: (id: string) => void;
@@ -91,7 +91,7 @@ export const MessageItem = memo(function MessageItem({
   storeMember,
   mentionsMe,
   isPostStarter,
-  contextMenu,
+  rowContextMenu,
   authorMenu,
   nameWrapper,
   onJumpReply,
@@ -116,7 +116,7 @@ export const MessageItem = memo(function MessageItem({
     : null;
   const av = memberAv ?? avatarUrl(message.author.id, message.author.avatar);
 
-  return (
+  const body = (
     <div
       data-message-id={message.id}
       className={cn(
@@ -225,17 +225,11 @@ export const MessageItem = memo(function MessageItem({
         )}
 
         <div className="text-sm leading-snug">
-          {contextMenu ? (
-            contextMenu(message)
-          ) : (
-            <>
-              {message.content && (
-                <MessageContent message={message} guild={guild} selfUserId={selfUserId} />
-              )}
-              {message.edited_timestamp && (
-                <span className="text-[10px] text-muted-foreground ml-1">(edited)</span>
-              )}
-            </>
+          {message.content && (
+            <MessageContent message={message} guild={guild} selfUserId={selfUserId} />
+          )}
+          {message.edited_timestamp && (
+            <span className="text-[10px] text-muted-foreground ml-1">(edited)</span>
           )}
         </div>
 
@@ -266,4 +260,5 @@ export const MessageItem = memo(function MessageItem({
       </div>
     </div>
   );
+  return rowContextMenu ? <>{rowContextMenu(message, body)}</> : body;
 });
