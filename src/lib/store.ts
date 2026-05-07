@@ -177,7 +177,20 @@ export const useRealtimeStore = create<State>((set) => ({
       const cur = next.get(guildId) ?? [];
       const map = new Map(cur.map((m) => [m.user?.id, m]));
       members.forEach((m) => {
-        if (m.user?.id) map.set(m.user.id, m);
+        if (!m.user?.id) return;
+        const existing = map.get(m.user.id);
+        if (
+          existing &&
+          Array.isArray(existing.roles) &&
+          existing.roles.length > 0 &&
+          (!Array.isArray(m.roles) || m.roles.length === 0)
+        ) {
+          map.set(m.user.id, { ...existing, ...m, roles: existing.roles });
+        } else if (existing) {
+          map.set(m.user.id, { ...existing, ...m });
+        } else {
+          map.set(m.user.id, m);
+        }
       });
       next.set(guildId, Array.from(map.values()));
       return { members: next };
@@ -186,8 +199,18 @@ export const useRealtimeStore = create<State>((set) => ({
     set((state) => {
       const next = new Map(state.members);
       const cur = next.get(guildId) ?? [];
+      const existing = cur.find((m) => m.user?.id === member.user?.id);
+      const merged: GuildMember = existing ? { ...existing, ...member } : member;
+      if (
+        existing &&
+        Array.isArray(existing.roles) &&
+        existing.roles.length > 0 &&
+        (!Array.isArray(member.roles) || member.roles.length === 0)
+      ) {
+        merged.roles = existing.roles;
+      }
       const filtered = cur.filter((m) => m.user?.id !== member.user?.id);
-      next.set(guildId, filtered.concat(member));
+      next.set(guildId, filtered.concat(merged));
       return { members: next };
     }),
   removeMember: (guildId, userId) =>

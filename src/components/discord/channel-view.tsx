@@ -103,7 +103,7 @@ export function ChannelView({ serverId, channelId }: Props) {
   const postStarterId = isThread && parentIsForum ? channelId : undefined;
 
   return (
-    <div className="flex h-screen w-full overflow-hidden">
+    <div className="flex h-dvh w-full overflow-hidden">
       <main className="flex-1 flex flex-col min-w-0">
         <header className="h-12 shrink-0 border-b flex items-center pl-12 pr-2 md:pl-12 md:pr-4 gap-2 md:gap-3 bg-background/80 backdrop-blur-sm min-w-0">
           <Icon className="size-4 text-muted-foreground shrink-0" />
@@ -157,7 +157,7 @@ export function ChannelView({ serverId, channelId }: Props) {
               postStarterId={postStarterId}
               onReply={setReply}
             />
-            <footer className="shrink-0 p-2 md:p-3 pt-2 border-t">
+            <footer className="shrink-0 p-2 md:p-3 pt-2 pb-safe md:pb-3 border-t">
               <MessageInput
                 channelId={channelId}
                 serverId={serverId}

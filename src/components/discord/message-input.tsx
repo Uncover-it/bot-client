@@ -29,7 +29,16 @@ import {
 import { cn } from "@/lib/utils";
 import StickerList from "@/components/stickerList";
 import { EmojiPickerPro } from "@/components/discord/emoji-picker-pro";
-import { sendMessage, triggerTyping } from "@/api/data/actions";
+import {
+  getGuildMembers,
+  sendMessage,
+  searchGuildMembers,
+  triggerTyping,
+} from "@/api/data/actions";
+import { DiscordAvatar } from "@/components/ui/discord-avatar";
+import { avatarUrl } from "@/lib/discord/cdn";
+import { Hash } from "lucide-react";
+import type { GuildMember } from "@/lib/discord/types";
 import { useRealtimeStore } from "@/lib/store";
 import { useChannelPermissions } from "@/hooks/use-permissions";
 import { useHydrated } from "@/hooks/use-hydrated";
@@ -64,6 +73,8 @@ interface Suggestion {
   label: string;
   sub?: string;
   insert: string;
+  avatar?: string;
+  color?: string;
 }
 
 export function MessageInput({
@@ -89,9 +100,26 @@ export function MessageInput({
   const taRef = useRef<HTMLTextAreaElement>(null);
 
   const guild = useRealtimeStore((s) => s.guilds.get(serverId));
+  const guildRoles = useMemo(() => guild?.roles ?? [], [guild?.roles]);
   const membersRaw = useRealtimeStore((s) => s.members.get(serverId));
   const members = useMemo(() => membersRaw ?? [], [membersRaw]);
   const channels = useMemo(() => guild?.channels ?? [], [guild?.channels]);
+  const channelMessages = useRealtimeStore((s) => s.messages.get(channelId));
+  const upsertMember = useRealtimeStore((s) => s.upsertMember);
+  const [remoteMembers, setRemoteMembers] = useState<GuildMember[]>([]);
+
+  const recentAuthorIds = useMemo(() => {
+    if (!channelMessages?.length) return [] as string[];
+    const seen = new Set<string>();
+    const ordered: string[] = [];
+    for (let i = 0; i < channelMessages.length && ordered.length < 12; i++) {
+      const id = channelMessages[i].author?.id;
+      if (!id || seen.has(id)) continue;
+      seen.add(id);
+      ordered.push(id);
+    }
+    return ordered;
+  }, [channelMessages]);
   const perms = useChannelPermissions(serverId, channelId);
   const hydrated = useHydrated();
   const canSend = hydrated ? can(perms, "Send Messages") : true;
@@ -167,7 +195,7 @@ export function MessageInput({
     const before = value.slice(0, caret);
     const m = before.match(/(?:^|\s)([@#])([\w-]{0,30})$/);
     if (!m) {
-      if (trigger.char) setTrigger({ char: null, start: 0, query: "" });
+      if (trigger.char) closeTrigger();
       return;
     }
     setTrigger({
@@ -180,19 +208,76 @@ export function MessageInput({
   const suggestions = useMemo<Suggestion[]>(() => {
     if (!trigger.char) return [];
     if (trigger.char === "@") {
-      return members
-        .filter((m) => {
-          const n = (m.nick ?? m.user?.global_name ?? m.user?.username ?? "").toLowerCase();
-          return n.includes(trigger.query);
-        })
-        .slice(0, 8)
-        .map((m) => ({
-          type: "user" as const,
-          id: m.user!.id,
-          label: m.nick ?? m.user?.global_name ?? m.user?.username ?? m.user!.id,
-          sub: `@${m.user?.username ?? ""}`,
-          insert: `<@${m.user!.id}>`,
-        }));
+      const colorFor = (m: GuildMember): string | undefined => {
+        if (!guildRoles.length || !m.roles?.length) return undefined;
+        const sorted = [...guildRoles]
+          .filter((r) => m.roles.includes(r.id) && r.color !== 0)
+          .sort((a, b) => b.position - a.position);
+        if (!sorted.length) return undefined;
+        return "#" + sorted[0].color.toString(16).padStart(6, "0");
+      };
+
+      const memberById = new Map<string, GuildMember>();
+      members.forEach((m) => {
+        if (m.user?.id) memberById.set(m.user.id, m);
+      });
+      remoteMembers.forEach((m) => {
+        if (m.user?.id && !memberById.has(m.user.id)) {
+          memberById.set(m.user.id, m);
+        }
+      });
+
+      const stubsFromMessages: GuildMember[] = [];
+      if (channelMessages) {
+        const haveIds = new Set(memberById.keys());
+        for (const msg of channelMessages) {
+          const a = msg.author;
+          if (!a?.id || haveIds.has(a.id)) continue;
+          haveIds.add(a.id);
+          stubsFromMessages.push({
+            user: a,
+            roles: [],
+            joined_at: "",
+            deaf: false,
+            mute: false,
+          } as GuildMember);
+        }
+      }
+      stubsFromMessages.forEach((m) => {
+        if (m.user?.id && !memberById.has(m.user.id)) {
+          memberById.set(m.user.id, m);
+        }
+      });
+
+      const matches = (m: GuildMember) => {
+        const n = (m.nick ?? m.user?.global_name ?? m.user?.username ?? "").toLowerCase();
+        return n.includes(trigger.query);
+      };
+
+      const seen = new Set<string>();
+      const ordered: GuildMember[] = [];
+      for (const id of recentAuthorIds) {
+        const m = memberById.get(id);
+        if (!m || !matches(m)) continue;
+        seen.add(id);
+        ordered.push(m);
+      }
+      for (const m of memberById.values()) {
+        if (!m.user?.id || seen.has(m.user.id)) continue;
+        if (!matches(m)) continue;
+        seen.add(m.user.id);
+        ordered.push(m);
+      }
+
+      return ordered.slice(0, 8).map((m) => ({
+        type: "user" as const,
+        id: m.user!.id,
+        label: m.nick ?? m.user?.global_name ?? m.user?.username ?? m.user!.id,
+        sub: `@${m.user?.username ?? ""}`,
+        insert: `<@${m.user!.id}>`,
+        avatar: avatarUrl(m.user!.id, m.user!.avatar),
+        color: colorFor(m),
+      }));
     }
     return channels
       .filter(
@@ -204,10 +289,43 @@ export function MessageInput({
       .map((c) => ({
         type: "channel" as const,
         id: c.id,
-        label: `#${c.name}`,
+        label: c.name ?? c.id,
         insert: `<#${c.id}>`,
       }));
-  }, [trigger, members, channels]);
+  }, [trigger, members, remoteMembers, channels, guildRoles, channelMessages, recentAuthorIds]);
+
+  useEffect(() => {
+    if (trigger.char !== "@") return;
+    let alive = true;
+    const handle = window.setTimeout(async () => {
+      try {
+        let fetched: GuildMember[] = [];
+        if (trigger.query) {
+          const r = await searchGuildMembers(serverId, trigger.query, 8);
+          if (Array.isArray(r)) fetched = r;
+        } else if (members.length < 25) {
+          const r = await getGuildMembers(serverId, 25);
+          if (Array.isArray(r)) fetched = r;
+        }
+        if (!alive) return;
+        if (fetched.length) {
+          setRemoteMembers(fetched);
+          fetched.forEach((m: GuildMember) => {
+            if (m?.user?.id) upsertMember(serverId, m);
+          });
+        }
+      } catch {}
+    }, 180);
+    return () => {
+      alive = false;
+      window.clearTimeout(handle);
+    };
+  }, [trigger.char, trigger.query, serverId, upsertMember, members.length]);
+
+  function closeTrigger() {
+    setTrigger({ char: null, start: 0, query: "" });
+    setRemoteMembers([]);
+  }
 
   const safeActiveSugg = Math.min(activeSugg, Math.max(0, suggestions.length - 1));
 
@@ -217,7 +335,7 @@ export function MessageInput({
       const after = prev.slice(taRef.current?.selectionStart ?? prev.length);
       return `${before}${s.insert} ${after}`;
     });
-    setTrigger({ char: null, start: 0, query: "" });
+    closeTrigger();
   }
 
   async function send() {
@@ -296,25 +414,69 @@ export function MessageInput({
 
   return (
     <div className="border rounded-xl bg-background overflow-hidden relative">
-      {suggestions.length > 0 && (
-        <div className="absolute bottom-full mb-1 left-0 right-0 mx-3 border bg-popover rounded-md shadow-md z-30 overflow-hidden">
-          {suggestions.map((s, i) => (
-            <button
-              key={s.id}
-              onMouseDown={(e) => {
-                e.preventDefault();
-                applySuggestion(s);
-              }}
-              onMouseEnter={() => setActiveSugg(i)}
-              className={cn(
-                "w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left",
-                i === safeActiveSugg ? "bg-accent" : "hover:bg-muted/50",
-              )}
-            >
-              <span className="font-medium">{s.label}</span>
-              {s.sub && <span className="text-xs text-muted-foreground">{s.sub}</span>}
-            </button>
-          ))}
+      {trigger.char && (
+        <div className="absolute bottom-full mb-2 left-0 right-0 mx-3 border bg-popover rounded-md shadow-lg z-30 overflow-hidden">
+          <div className="px-3 py-1 border-b text-[10px] uppercase tracking-[0.18em] font-mono text-muted-foreground flex items-center justify-between">
+            <span>{trigger.char === "@" ? "Members matching" : "Channels matching"}</span>
+            <span className="text-foreground/60">
+              {trigger.query ? `"${trigger.query}"` : "any"}
+            </span>
+          </div>
+          {suggestions.length === 0 ? (
+            <div className="px-3 py-2 text-xs text-muted-foreground italic">
+              {trigger.char === "@"
+                ? trigger.query
+                  ? "No members found. Bot may need GUILD_MEMBERS intent."
+                  : "Type a name to search for members."
+                : "No channels match."}
+            </div>
+          ) : (
+            <div className="max-h-64 overflow-y-auto">
+            {suggestions.map((s, i) => {
+              const active = i === safeActiveSugg;
+              return (
+                <button
+                  key={`${s.type}-${s.id}`}
+                  type="button"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    applySuggestion(s);
+                  }}
+                  onMouseEnter={() => setActiveSugg(i)}
+                  className={cn(
+                    "w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left transition-colors",
+                    active
+                      ? "bg-[oklch(0.7686_0.1647_70.08/0.15)] text-foreground"
+                      : "hover:bg-muted/40",
+                  )}
+                >
+                  {s.type === "user" ? (
+                    <DiscordAvatar src={s.avatar ?? "/discord.svg"} alt={s.label} size={20} />
+                  ) : (
+                    <Hash className="size-4 text-muted-foreground shrink-0" />
+                  )}
+                  <span
+                    className="font-medium truncate"
+                    style={s.color ? { color: s.color } : undefined}
+                  >
+                    {s.label}
+                  </span>
+                  {s.sub && (
+                    <span className="text-xs text-muted-foreground truncate">{s.sub}</span>
+                  )}
+                  <span className="ml-auto text-[10px] font-mono text-muted-foreground/70 shrink-0">
+                    {s.id.slice(-6)}
+                  </span>
+                </button>
+              );
+            })}
+            </div>
+          )}
+          <div className="px-3 py-1 border-t text-[10px] font-mono text-muted-foreground flex items-center gap-3">
+            <span><kbd className="font-mono">↑↓</kbd> nav</span>
+            <span><kbd className="font-mono">↵</kbd> select</span>
+            <span><kbd className="font-mono">esc</kbd> dismiss</span>
+          </div>
         </div>
       )}
       {reply && (
@@ -392,10 +554,11 @@ export function MessageInput({
               applySuggestion(suggestions[safeActiveSugg]);
               return;
             }
-            if (e.key === "Escape") {
-              setTrigger({ char: null, start: 0, query: "" });
-              return;
-            }
+          }
+          if (trigger.char && e.key === "Escape") {
+            e.preventDefault();
+            closeTrigger();
+            return;
           }
           if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
             e.preventDefault();

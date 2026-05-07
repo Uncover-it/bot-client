@@ -20,6 +20,16 @@ export function memberAvatarUrl(
   return `${CDN_BASE}/guilds/${guildId}/users/${userId}/avatars/${hash}.${ext}?size=${size}`;
 }
 
+export function userBannerUrl(
+  userId: string,
+  hash?: string | null,
+  size = 600,
+): string | null {
+  if (!hash) return null;
+  const ext = hash.startsWith("a_") ? "gif" : "png";
+  return `${CDN_BASE}/banners/${userId}/${hash}.${ext}?size=${size}`;
+}
+
 export function guildIconUrl(guildId: string, hash?: string | null, size = 128): string | null {
   if (!hash) return null;
   const ext = hash.startsWith("a_") ? "gif" : "png";

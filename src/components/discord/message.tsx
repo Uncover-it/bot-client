@@ -9,6 +9,8 @@ import { MessageContent } from "@/components/discord/message-content";
 import { MessageEmbed } from "@/components/discord/message-embed";
 import { MessageAttachment } from "@/components/discord/message-attachment";
 import { avatarUrl, memberAvatarUrl } from "@/lib/discord/cdn";
+import { readableRoleColor } from "@/lib/discord/role-color";
+import { useResolvedTheme } from "@/hooks/use-resolved-theme";
 import type { Guild, GuildMember, Message, Presence } from "@/lib/discord/types";
 
 interface Props {
@@ -17,6 +19,7 @@ interface Props {
   guild?: Guild;
   presence?: Presence;
   guildId?: string;
+  selfUserId?: string;
   storeMember?: GuildMember;
   mentionsMe?: boolean;
   isPostStarter?: boolean;
@@ -44,18 +47,27 @@ function shortTime(d: string): string {
   return new Date(d).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 }
 
+const colorCache = new Map<string, string>();
+
 function authorColor(
   message: Message,
   guild?: Guild,
   storeMember?: GuildMember,
 ): string | undefined {
   const memberRoles = message.member?.roles ?? storeMember?.roles;
-  if (!guild?.roles || !memberRoles) return undefined;
+  const cacheKey = guild?.id ? `${guild.id}:${message.author.id}` : undefined;
+  if (!guild?.roles || !memberRoles) {
+    return cacheKey ? colorCache.get(cacheKey) : undefined;
+  }
   const sorted = [...guild.roles]
     .filter((r) => memberRoles.includes(r.id) && r.color !== 0)
     .sort((a, b) => b.position - a.position);
-  if (!sorted.length) return undefined;
-  return "#" + sorted[0].color.toString(16).padStart(6, "0");
+  if (!sorted.length) {
+    return cacheKey ? colorCache.get(cacheKey) : undefined;
+  }
+  const hex = "#" + sorted[0].color.toString(16).padStart(6, "0");
+  if (cacheKey) colorCache.set(cacheKey, hex);
+  return hex;
 }
 
 function shouldGroup(prev: Message | undefined, m: Message): boolean {
@@ -73,6 +85,7 @@ export const MessageItem = memo(function MessageItem({
   prev,
   guild,
   guildId,
+  selfUserId,
   storeMember,
   mentionsMe,
   isPostStarter,
@@ -83,10 +96,12 @@ export const MessageItem = memo(function MessageItem({
   hoverToolbar,
 }: Props) {
   const grouped = shouldGroup(prev, message);
-  const color = useMemo(
+  const theme = useResolvedTheme();
+  const rawColor = useMemo(
     () => authorColor(message, guild, storeMember),
     [message, guild, storeMember],
   );
+  const color = readableRoleColor(rawColor, theme);
   const displayName =
     message.member?.nick ??
     storeMember?.nick ??
@@ -102,24 +117,25 @@ export const MessageItem = memo(function MessageItem({
     <div
       data-message-id={message.id}
       className={cn(
-        "group/msg relative flex gap-3 px-2 md:px-4 transition-colors min-w-0",
-        grouped ? "py-0.5" : "pt-3 pb-1",
+        "group/msg relative px-2 md:px-4 transition-colors min-w-0",
+        grouped ? "py-0.5" : "pt-2 pb-1",
         mentionsMe
-          ? "bg-yellow-500/10 hover:bg-yellow-500/15 border-l-2 border-yellow-500"
+          ? "bg-[oklch(0.7686_0.1647_70.08/0.08)] hover:bg-[oklch(0.7686_0.1647_70.08/0.14)] border-l-2 border-brand"
           : isPostStarter
             ? "bg-primary/[0.04] hover:bg-primary/[0.08] border-l-2 border-primary/60"
             : "hover:bg-muted/30",
       )}
     >
       {hoverToolbar && (
-        <div className="absolute -top-3 right-4 opacity-0 group-hover/msg:opacity-100 transition-opacity z-[1] flex items-center gap-0.5 bg-popover border rounded-md shadow-sm px-1 py-0.5">
+        <div className="absolute -top-3 right-2 md:right-4 opacity-0 group-hover/msg:opacity-100 max-md:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity z-[1] flex items-center gap-0.5 bg-popover border rounded-md shadow-sm px-1 py-0.5">
           {hoverToolbar(message)}
         </div>
       )}
       {message.message_reference && message.referenced_message && (
         <button
+          type="button"
           onClick={() => onJumpReply?.(message.referenced_message!.id)}
-          className="absolute -top-0.5 left-12 right-4 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground truncate cursor-pointer transition-colors"
+          className="flex items-center gap-1 ml-12 mr-4 mb-0.5 text-xs text-muted-foreground hover:text-foreground cursor-pointer transition-colors min-w-0 max-w-[calc(100%-4rem)]"
         >
           <CornerUpRight className="size-3 shrink-0" />
           <DiscordAvatar
@@ -130,7 +146,7 @@ export const MessageItem = memo(function MessageItem({
             alt=""
             size={16}
           />
-          <span className="font-medium">
+          <span className="font-medium shrink-0">
             {message.referenced_message.author.global_name ??
               message.referenced_message.author.username}
           </span>
@@ -140,21 +156,20 @@ export const MessageItem = memo(function MessageItem({
         </button>
       )}
 
-      <div className="w-10 shrink-0 flex justify-center">
-        {grouped ? (
-          <span className="text-[10px] text-muted-foreground opacity-0 group-hover/msg:opacity-100 self-center font-mono">
-            {shortTime(message.timestamp)}
-          </span>
-        ) : (
-          <div className={cn(message.message_reference && "mt-3")}>
-            {authorMenu ? authorMenu(message) : (
-              <DiscordAvatar src={av} alt={displayName} size={36} />
-            )}
-          </div>
-        )}
-      </div>
+      <div className="flex gap-3 min-w-0 items-start">
+        <div className="w-10 shrink-0 flex justify-center">
+          {grouped ? (
+            <span className="text-[10px] text-muted-foreground opacity-0 group-hover/msg:opacity-100 self-center font-mono">
+              {shortTime(message.timestamp)}
+            </span>
+          ) : authorMenu ? (
+            authorMenu(message)
+          ) : (
+            <DiscordAvatar src={av} alt={displayName} size={36} />
+          )}
+        </div>
 
-      <div className={cn("flex-1 min-w-0", message.message_reference && !grouped && "mt-3")}>
+        <div className="flex-1 min-w-0">
         {!grouped && (
           <div className="flex items-baseline gap-2 leading-tight flex-wrap">
             {nameWrapper ? (
@@ -206,7 +221,9 @@ export const MessageItem = memo(function MessageItem({
             contextMenu(message)
           ) : (
             <>
-              {message.content && <MessageContent message={message} guild={guild} />}
+              {message.content && (
+                <MessageContent message={message} guild={guild} selfUserId={selfUserId} />
+              )}
               {message.edited_timestamp && (
                 <span className="text-[10px] text-muted-foreground ml-1">(edited)</span>
               )}
@@ -229,6 +246,7 @@ export const MessageItem = memo(function MessageItem({
             ))}
           </div>
         )}
+        </div>
       </div>
     </div>
   );

@@ -72,7 +72,7 @@ export function StatusBar() {
       <PopoverContent
         align="end"
         sideOffset={6}
-        className="w-80 p-0 overflow-hidden"
+        className="w-80 max-w-[calc(100vw-1rem)] p-0 overflow-hidden"
       >
         <div className="px-3 py-2.5 space-y-2 text-xs">
           <div className="flex items-center justify-between gap-3">

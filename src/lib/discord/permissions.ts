@@ -1,5 +1,5 @@
 import { PERMISSIONS } from "./constants";
-import type { Channel, Guild, Role } from "./types";
+import type { Channel, Guild } from "./types";
 
 export function hasPermission(
   permissions: string | bigint,
@@ -73,22 +73,6 @@ export function computeChannelPermissions(
   }
 
   return perms;
-}
-
-export function rolePermissionsFor(roles: Role[] | undefined, roleIds: string[]): bigint {
-  if (!roles) return 0n;
-  let acc = 0n;
-  for (const r of roles) {
-    if (roleIds.includes(r.id) || r.id === r.id /* base @everyone */) {
-      // included only if matched explicitly below
-    }
-  }
-  for (const r of roles) {
-    if (roleIds.includes(r.id)) acc |= BigInt(r.permissions);
-  }
-  const everyone = roles.find((r) => r.position === 0 || r.id === r.id);
-  if (everyone && everyone.id) acc |= BigInt(everyone.permissions);
-  return acc;
 }
 
 export function can(perms: bigint, perm: keyof typeof PERMISSIONS): boolean {

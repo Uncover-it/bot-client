@@ -28,14 +28,23 @@ import {
 } from "@/api/data/actions";
 import {
   ClockPlus,
+  Copy,
   ExternalLink,
+  IdCard,
   Trash2,
   Pin,
   PinOff,
   UserRoundMinus,
   Ban,
   Reply,
+  MoreHorizontal,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import Link from "next/link";
 import {
   CopyID,
@@ -166,10 +175,11 @@ export function MessageList({ channelId, serverId, postStarterId, onReply }: Pro
               content: msg.content || "[attachment]",
             })
           }
-          className="size-6 grid place-items-center rounded hover:bg-muted text-muted-foreground hover:text-foreground"
+          className="size-8 md:size-6 grid place-items-center rounded hover:bg-muted text-muted-foreground hover:text-foreground"
           title="Reply"
+          aria-label="Reply"
         >
-          <Reply className="size-3" />
+          <Reply className="size-4 md:size-3" />
         </button>
         <button
           onClick={() => {
@@ -179,10 +189,11 @@ export function MessageList({ channelId, serverId, postStarterId, onReply }: Pro
             };
             toast.promise(p(), { loading: "Updating", success: "Done" });
           }}
-          className="size-6 grid place-items-center rounded hover:bg-muted text-muted-foreground hover:text-foreground"
+          className="size-8 md:size-6 grid place-items-center rounded hover:bg-muted text-muted-foreground hover:text-foreground"
           title={msg.pinned ? "Unpin" : "Pin"}
+          aria-label={msg.pinned ? "Unpin" : "Pin"}
         >
-          {msg.pinned ? <PinOff className="size-3" /> : <Pin className="size-3" />}
+          {msg.pinned ? <PinOff className="size-4 md:size-3" /> : <Pin className="size-4 md:size-3" />}
         </button>
         {(msg.author.id === useRealtimeStore.getState().user?.id || canManageMessages) && (
           <button
@@ -190,12 +201,42 @@ export function MessageList({ channelId, serverId, postStarterId, onReply }: Pro
               const p = async () => deleteMessage(channelId, msg.id);
               toast.promise(p(), { loading: "Deleting", success: "Deleted" });
             }}
-            className="size-6 grid place-items-center rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
+            className="size-8 md:size-6 grid place-items-center rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
             title="Delete"
+            aria-label="Delete"
           >
-            <Trash2 className="size-3" />
+            <Trash2 className="size-4 md:size-3" />
           </button>
         )}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              className="size-8 md:hidden grid place-items-center rounded hover:bg-muted text-muted-foreground hover:text-foreground"
+              title="More"
+              aria-label="More actions"
+            >
+              <MoreHorizontal className="size-4" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="bg-sidebar font-mono tracking-tighter">
+            <DropdownMenuItem
+              onSelect={() => {
+                navigator.clipboard.writeText(msg.content ?? "");
+                toast.success("Copied message");
+              }}
+            >
+              <Copy className="mr-2 size-4" /> Copy text
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={() => {
+                navigator.clipboard.writeText(msg.id);
+                toast.success("Copied ID");
+              }}
+            >
+              <IdCard className="mr-2 size-4" /> Copy ID
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </>
     ),
     [onReply, channelId, canManageMessages],
@@ -297,7 +338,9 @@ export function MessageList({ channelId, serverId, postStarterId, onReply }: Pro
       <ContextMenu>
         <ContextMenuTrigger asChild>
           <div className="min-w-0 break-words">
-            {msg.content && <MessageContent message={msg} guild={guild} />}
+            {msg.content && (
+              <MessageContent message={msg} guild={guild} selfUserId={botUserId} />
+            )}
             {msg.edited_timestamp && (
               <span className="text-[10px] text-muted-foreground ml-1">(edited)</span>
             )}
@@ -422,6 +465,7 @@ export function MessageList({ channelId, serverId, postStarterId, onReply }: Pro
                 prev={ordered[i - 1]}
                 guild={guild}
                 guildId={serverId}
+                selfUserId={botUserId}
                 storeMember={memberById.get(m.author.id)}
                 mentionsMe={mentionsMe}
                 isPostStarter={isPostStarter}

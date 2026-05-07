@@ -9,7 +9,7 @@ import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const TOKEN_REGEX = /[\w-]{24,28}\.[\w-]{6,7}\.[\w-]{25,120}/;
+const TOKEN_REGEX = /^[\w-]{24,28}\.[\w-]{6,7}\.[\w-]{25,120}$/;
 
 export default function LoginForm() {
   const [token, setToken] = useState("");
@@ -71,7 +71,8 @@ export default function LoginForm() {
         </button>
       </div>
       <p className="text-xs text-muted-foreground text-left">
-        Token stays in your browser and Discord only. Never sent anywhere else.
+        Sent to this server to talk to Discord on your behalf. Stored only in
+        an httpOnly session cookie. Not written to a database.
       </p>
       <Button className="w-full" disabled={!token || busy}>
         {busy ? "Logging in…" : "Login"}

@@ -7,6 +7,7 @@ import type { Guild, Message, Role } from "@/lib/discord/types";
 interface Props {
   message: Message;
   guild?: Guild;
+  selfUserId?: string;
 }
 
 function colorOfRoleId(roleId: string, roles: Role[] = []): number {
@@ -19,7 +20,11 @@ function hex(n: number): string {
   return "#" + n.toString(16).padStart(6, "0");
 }
 
-export const MessageContent = memo(function MessageContent({ message, guild }: Props) {
+function escapeMd(label: string): string {
+  return label.replace(/[\\\[\]()]/g, (c) => `\\${c}`);
+}
+
+export const MessageContent = memo(function MessageContent({ message, guild, selfUserId }: Props) {
   const userMap = useMemo(() => {
     const m = new Map<string, string>();
     message.mentions?.forEach((u) => m.set(u.id, u.global_name ?? u.username));
@@ -35,12 +40,23 @@ export const MessageContent = memo(function MessageContent({ message, guild }: P
   const transformed = useMemo(() => {
     if (!message.content) return "";
     let s = message.content;
-    s = s.replace(/<@!?(\d+)>/g, (_, id) => `**@${userMap.get(id) ?? id}**`);
+    s = s.replace(/<@!?(\d+)>/g, (_, id) => {
+      const name = userMap.get(id) ?? id;
+      const self = selfUserId && id === selfUserId ? "self" : "user";
+      return `[@${escapeMd(name)}](dc:${self}/${id})`;
+    });
     s = s.replace(/<@&(\d+)>/g, (_, id) => {
       const role = guild?.roles?.find((r) => r.id === id);
-      return role ? `**@${role.name}**` : `**@&${id}**`;
+      const name = role?.name ?? id;
+      const color = role?.color ? "#" + role.color.toString(16).padStart(6, "0") : "";
+      const q = color ? `?c=${encodeURIComponent(color)}` : "";
+      return `[@${escapeMd(name)}](dc:role/${id}${q})`;
     });
-    s = s.replace(/<#(\d+)>/g, (_, id) => `**#${channelMap.get(id) ?? id}**`);
+    s = s.replace(/<#(\d+)>/g, (_, id) => {
+      const name = channelMap.get(id) ?? id;
+      return `[#${escapeMd(name)}](dc:channel/${id})`;
+    });
+    s = s.replace(/@(everyone|here)\b/g, (_, kind) => `[@${kind}](dc:broadcast/${kind})`);
     s = s.replace(/<a?:(\w+):(\d+)>/g, (_, name) => `:${name}:`);
     s = s.replace(/<t:(\d+)(?::([tTdDfFR]))?>/g, (_, ts) => {
       try {
@@ -49,10 +65,22 @@ export const MessageContent = memo(function MessageContent({ message, guild }: P
         return _;
       }
     });
+    s = s.replace(
+      /(^|[\s(])((?:https?:\/\/)?(?:discord\.gg|discord\.invite|discord\.com\/invite)\/[a-zA-Z0-9-]+)/gi,
+      (_, lead, raw) => {
+        const url = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+        return `${lead}[${raw}](${url})`;
+      },
+    );
     return s;
-  }, [message.content, userMap, channelMap, guild?.roles]);
+  }, [message.content, userMap, channelMap, guild?.roles, selfUserId]);
 
   return <Markdown>{transformed}</Markdown>;
-}, (a, b) => a.message === b.message && a.guild?.roles === b.guild?.roles && a.guild?.channels === b.guild?.channels);
+}, (a, b) =>
+  a.message === b.message &&
+  a.guild?.roles === b.guild?.roles &&
+  a.guild?.channels === b.guild?.channels &&
+  a.selfUserId === b.selfUserId,
+);
 
 export { hex, colorOfRoleId };

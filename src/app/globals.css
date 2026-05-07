@@ -23,6 +23,10 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-mention: var(--mention);
+  --color-mention-foreground: var(--mention-foreground);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
@@ -53,6 +57,10 @@
   --popover-foreground: oklch(0.1448 0 0);
   --primary: oklch(0.2046 0 0);
   --primary-foreground: oklch(0.9851 0 0);
+  --brand: oklch(0.7686 0.1647 70.08);
+  --brand-foreground: oklch(0.16 0 0);
+  --mention: oklch(0.7686 0.1647 70.08 / 0.18);
+  --mention-foreground: oklch(0.55 0.16 65);
   --secondary: oklch(0.9551 0 0);
   --secondary-foreground: oklch(0.2046 0 0);
   --muted: oklch(0.9551 0 0);
@@ -90,6 +98,10 @@
   --popover-foreground: oklch(0.95 0 0);
   --primary: oklch(0.95 0 0);
   --primary-foreground: oklch(0.2046 0 0);
+  --brand: oklch(0.7686 0.1647 70.08);
+  --brand-foreground: oklch(0.16 0 0);
+  --mention: oklch(0.7686 0.1647 70.08 / 0.22);
+  --mention-foreground: oklch(0.85 0.13 75);
   --secondary: oklch(0.22 0.005 285);
   --secondary-foreground: oklch(0.95 0 0);
   --muted: oklch(0.22 0.005 285);
@@ -131,6 +143,18 @@
   .scrollbar-thin {
     scrollbar-width: thin;
   }
+  .pb-safe {
+    padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+  }
+  .pl-safe {
+    padding-left: max(0px, env(safe-area-inset-left));
+  }
+  .pr-safe {
+    padding-right: max(0px, env(safe-area-inset-right));
+  }
+  .pt-safe {
+    padding-top: max(0px, env(safe-area-inset-top));
+  }
 }
 
 @utility container {
@@ -148,6 +172,12 @@
     font-family: var(--font-sans);
     @apply bg-background text-foreground antialiased;
     font-feature-settings: "cv11", "ss01";
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior-y: none;
+  }
+  html {
+    text-size-adjust: 100%;
+    -webkit-text-size-adjust: 100%;
   }
   ::-webkit-scrollbar {
     width: 8px;
@@ -164,8 +194,8 @@
     background: var(--muted-foreground);
   }
   ::selection {
-    background: var(--primary);
-    color: var(--primary-foreground);
+    background: oklch(0.7686 0.1647 70.08 / 0.4);
+    color: var(--foreground);
   }
 }
 

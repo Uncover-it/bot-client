@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useSyncExternalStore, type ReactNode } from "react";
+import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 import {
   Popover,
   PopoverContent,
@@ -28,12 +28,19 @@ import {
   setTimeout as serverTimeout,
   addMemberRole,
   removeMemberRole,
+  getGuildMember,
+  getUser,
 } from "@/api/data/actions";
-import { avatarUrl, memberAvatarUrl } from "@/lib/discord/cdn";
+import { avatarUrl, memberAvatarUrl, userBannerUrl } from "@/lib/discord/cdn";
 import { useGuildPermissions } from "@/hooks/use-permissions";
+import { useResolvedTheme } from "@/hooks/use-resolved-theme";
 import { can } from "@/lib/discord/permissions";
+import { readableRoleColor } from "@/lib/discord/role-color";
+import { STATUS_COLOR } from "@/lib/discord/constants";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import Image from "next/image";
+import type { GuildMember, User } from "@/lib/discord/types";
 import {
   Ban,
   Check,
@@ -45,6 +52,17 @@ import {
   UserRoundMinus,
   X,
 } from "lucide-react";
+
+const memberSnapshotCache = new Map<string, GuildMember>();
+const userProfileCache = new Map<string, User>();
+
+const STATUS_LABEL: Record<string, string> = {
+  online: "Online",
+  idle: "Idle",
+  dnd: "Do Not Disturb",
+  offline: "Offline",
+  invisible: "Invisible",
+};
 
 interface Props {
   guildId: string;
@@ -91,8 +109,13 @@ const TIMEOUT_OPTIONS = [
 ];
 
 export function UserProfilePopover({ guildId, userId, trigger }: Props) {
+  const cacheKey = `${guildId}:${userId}`;
+  const theme = useResolvedTheme();
+  const [profile, setProfile] = useState<User | null>(
+    () => userProfileCache.get(userId) ?? null,
+  );
   const guild = useRealtimeStore((s) => s.guilds.get(guildId));
-  const member = useRealtimeStore((s) =>
+  const liveMember = useRealtimeStore((s) =>
     (s.members.get(guildId) ?? []).find((m) => m.user?.id === userId),
   );
   const presence = useRealtimeStore((s) =>
@@ -102,8 +125,19 @@ export function UserProfilePopover({ guildId, userId, trigger }: Props) {
   const perms = useGuildPermissions(guildId);
   const [open, setOpen] = useState(false);
   const [rolePickerOpen, setRolePickerOpen] = useState(false);
+  const liveHasRoles = !!liveMember && Array.isArray(liveMember.roles) && liveMember.roles.length > 0;
+  const cachedSnapshot = memberSnapshotCache.get(cacheKey);
+  const member: GuildMember | undefined = liveHasRoles
+    ? liveMember
+    : (cachedSnapshot ?? liveMember);
 
-  const u = member?.user;
+  useEffect(() => {
+    if (liveHasRoles && liveMember) {
+      memberSnapshotCache.set(cacheKey, liveMember);
+    }
+  }, [liveHasRoles, liveMember, cacheKey]);
+
+  const u = member?.user ?? liveMember?.user;
   const name = member?.nick ?? u?.global_name ?? u?.username ?? userId;
   const memberAv = u ? memberAvatarUrl(guildId, u.id, member?.avatar) : null;
   const av = memberAv ?? (u ? avatarUrl(u.id, u.avatar) : "/discord.svg");
@@ -121,6 +155,38 @@ export function UserProfilePopover({ guildId, userId, trigger }: Props) {
 
   const colorRole = assignedRoles.find((r) => r.color !== 0);
   const accent = colorRole ? "#" + colorRole.color.toString(16).padStart(6, "0") : undefined;
+
+  useEffect(() => {
+    if (!open || liveHasRoles || !userId) return;
+    let alive = true;
+    (async () => {
+      try {
+        const fetched = await getGuildMember(guildId, userId);
+        if (!alive || !fetched?.user?.id) return;
+        upsertMember(guildId, fetched);
+      } catch {}
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [open, liveHasRoles, guildId, userId, upsertMember]);
+
+  useEffect(() => {
+    if (!open || !userId) return;
+    if (profile && profile.id === userId) return;
+    let alive = true;
+    (async () => {
+      try {
+        const fetched = await getUser(userId);
+        if (!alive || !fetched?.id) return;
+        userProfileCache.set(userId, fetched);
+        setProfile(fetched);
+      } catch {}
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [open, userId, profile]);
 
   const now = useSyncExternalStore(subscribeNow, getNowSnapshot, getNowServerSnapshot);
   const isTimedOut = member?.communication_disabled_until
@@ -185,27 +251,72 @@ export function UserProfilePopover({ guildId, userId, trigger }: Props) {
       <PopoverContent
         side="left"
         align="start"
-        className="w-80 p-0 overflow-hidden border-2 max-w-[calc(100vw-2rem)]"
+        sideOffset={8}
+        collisionPadding={16}
+        sticky="partial"
+        avoidCollisions
+        onOpenAutoFocus={(e) => e.preventDefault()}
+        className="w-80 p-0 overflow-y-auto overflow-x-hidden border-2 max-w-[calc(100vw-2rem)] max-h-[var(--radix-popover-content-available-height)]"
       >
         <TooltipProvider delayDuration={500}>
-          <div
-            className="h-14"
-            style={{
-              background: accent ? accent : "linear-gradient(135deg, #4f46e5, #06b6d4)",
-            }}
-          />
-          <div className="px-4 pb-4 -mt-8 relative z-10">
-            <Image
-              src={av}
-              alt={name}
-              width={64}
-              height={64}
-              unoptimized
-              className="rounded-full ring-4 ring-background relative"
-            />
+          {(() => {
+            const banner = userBannerUrl(userId, profile?.banner ?? null, 600);
+            const fallbackBg = (() => {
+              if (profile?.banner_color) return profile.banner_color;
+              if (typeof profile?.accent_color === "number") {
+                return "#" + profile.accent_color.toString(16).padStart(6, "0");
+              }
+              if (accent) return accent;
+              return "linear-gradient(135deg, #4f46e5, #06b6d4)";
+            })();
+            return (
+              <div
+                className="relative h-24 overflow-hidden"
+                style={banner ? undefined : { background: fallbackBg }}
+              >
+                {banner && (
+                  <Image
+                    src={banner}
+                    alt=""
+                    fill
+                    unoptimized
+                    sizes="320px"
+                    className="object-cover"
+                  />
+                )}
+              </div>
+            );
+          })()}
+          <div className="px-4 pb-4 -mt-10 relative z-10">
+            <div className="relative inline-block">
+              <Image
+                src={av}
+                alt={name}
+                width={72}
+                height={72}
+                unoptimized
+                className="rounded-full ring-4 ring-popover relative"
+              />
+              {presence?.status && (
+                <span
+                  title={STATUS_LABEL[presence.status] ?? presence.status}
+                  className={cn(
+                    "absolute bottom-0 right-0 size-4 rounded-full ring-[3px] ring-popover",
+                    STATUS_COLOR[presence.status] ?? STATUS_COLOR.offline,
+                  )}
+                />
+              )}
+            </div>
             <div className="mt-2">
               <div className="font-semibold text-base flex items-center gap-2 flex-wrap">
-                <span className="truncate">{name}</span>
+                <span
+                  className="truncate"
+                  style={
+                    accent ? { color: readableRoleColor(accent, theme) } : undefined
+                  }
+                >
+                  {name}
+                </span>
                 {u?.bot && (
                   <span className="px-1 rounded bg-blue-500 text-white text-[9px] font-bold">
                     BOT
@@ -221,10 +332,34 @@ export function UserProfilePopover({ guildId, userId, trigger }: Props) {
                 @{u?.username ?? userId}
               </div>
             </div>
-            {presence?.activities?.[0] && (
-              <div className="mt-2 text-xs">
-                <span className="text-muted-foreground">Playing </span>
-                <span className="font-medium">{presence.activities[0].name}</span>
+            {presence?.status && (
+              <div className="mt-2 text-xs flex items-center gap-1.5">
+                <span
+                  className={cn(
+                    "size-2 rounded-full",
+                    STATUS_COLOR[presence.status] ?? STATUS_COLOR.offline,
+                  )}
+                />
+                <span className="text-muted-foreground">
+                  {STATUS_LABEL[presence.status] ?? presence.status}
+                </span>
+                {presence.activities?.[0]?.name && (
+                  <>
+                    <span className="text-muted-foreground/50">·</span>
+                    <span className="text-muted-foreground">
+                      {presence.activities[0].type === 2
+                        ? "Listening to"
+                        : presence.activities[0].type === 3
+                          ? "Watching"
+                          : presence.activities[0].type === 1
+                            ? "Streaming"
+                            : "Playing"}
+                    </span>
+                    <span className="font-medium truncate">
+                      {presence.activities[0].name}
+                    </span>
+                  </>
+                )}
               </div>
             )}
             {member?.joined_at && (
@@ -287,18 +422,23 @@ export function UserProfilePopover({ guildId, userId, trigger }: Props) {
                   <span className="text-[10px] text-muted-foreground">No roles</span>
                 )}
                 {assignedRoles.slice(0, 12).map((r) => {
-                  const colorHex = r.color
+                  const rawHex = r.color
                     ? "#" + r.color.toString(16).padStart(6, "0")
                     : undefined;
+                  const textHex = readableRoleColor(rawHex, theme);
                   return (
                     <span
                       key={r.id}
                       className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] border"
                       style={{
-                        borderColor: colorHex,
-                        color: colorHex,
+                        borderColor: textHex ?? "var(--border)",
+                        color: textHex ?? "var(--muted-foreground)",
                       }}
                     >
+                      <span
+                        className="size-1.5 rounded-full"
+                        style={{ background: rawHex ?? "var(--muted-foreground)" }}
+                      />
                       {r.name}
                       {canRoles && !r.managed && (
                         <button

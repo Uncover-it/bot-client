@@ -48,7 +48,7 @@ export function EmojiPickerPro({ guildId, onSelect }: Props) {
     : emojis;
 
   return (
-    <div className="w-[340px] flex flex-col bg-popover">
+    <div className="w-[min(340px,calc(100vw-1rem))] flex flex-col bg-popover">
       <div className="flex border-b">
         <Button
           variant="ghost"
@@ -75,7 +75,7 @@ export function EmojiPickerPro({ guildId, onSelect }: Props) {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search server emoji"
-              className="h-8 text-xs"
+              className="h-9 md:h-8 text-base md:text-xs"
             />
           </div>
           {emojis.length === 0 ? (

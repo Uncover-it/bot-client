@@ -7,6 +7,9 @@ export interface User {
   global_name?: string | null;
   avatar?: string | null;
   bot?: boolean;
+  banner?: string | null;
+  accent_color?: number | null;
+  banner_color?: string | null;
 }
 
 export interface Role {

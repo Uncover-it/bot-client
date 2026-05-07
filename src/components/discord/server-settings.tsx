@@ -7,6 +7,7 @@ import {
   createRole,
   deleteChannel,
   deleteRole,
+  getAuditLog,
   getGuild,
   getGuildBans,
   getGuildChannels,
@@ -51,6 +52,8 @@ import {
   Ban,
   RotateCcw,
   Search,
+  ScrollText,
+  LoaderCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import Image from "next/image";
@@ -65,7 +68,7 @@ interface Props {
   guildId: string;
 }
 
-type Tab = "overview" | "channels" | "roles" | "bans" | "perms";
+type Tab = "overview" | "channels" | "roles" | "bans" | "audit" | "perms";
 
 export function ServerSettings({ guildId }: Props) {
   const guild = useRealtimeStore((s) => s.guilds.get(guildId));
@@ -102,7 +105,7 @@ export function ServerSettings({ guildId }: Props) {
 
   return (
     <div className="flex h-full flex-col md:flex-row min-w-0">
-      <aside className="md:w-56 shrink-0 md:border-r border-b md:border-b-0 p-3 md:pt-12 pt-4 pl-12 md:pl-3 flex md:flex-col gap-1 overflow-x-auto">
+      <aside className="md:w-56 shrink-0 md:border-r border-b md:border-b-0 p-3 md:pt-12 pt-3 pl-14 md:pl-3 flex md:flex-col gap-1 overflow-x-auto">
         <Link
           href={`/dashboard`}
           className="hidden md:flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground mb-2 py-1"
@@ -113,6 +116,7 @@ export function ServerSettings({ guildId }: Props) {
         <SettingsTab id="channels" label="Channels" current={tab} onClick={setTab} />
         <SettingsTab id="roles" label="Roles" current={tab} onClick={setTab} />
         <SettingsTab id="bans" label="Bans" current={tab} onClick={setTab} />
+        <SettingsTab id="audit" label="Audit log" current={tab} onClick={setTab} />
         <SettingsTab id="perms" label="Bot permissions" current={tab} onClick={setTab} />
       </aside>
       <div className="flex-1 overflow-y-auto p-4 md:p-8 min-w-0">
@@ -120,6 +124,7 @@ export function ServerSettings({ guildId }: Props) {
         {tab === "channels" && <ChannelsPane guildId={guildId} />}
         {tab === "roles" && <RolesPane guildId={guildId} />}
         {tab === "bans" && <BansPane guildId={guildId} />}
+        {tab === "audit" && <AuditPane guildId={guildId} />}
         {tab === "perms" && <PermsPane guildId={guildId} />}
       </div>
     </div>
@@ -162,13 +167,13 @@ function Overview({ guildId }: { guildId: string }) {
   async function save() {
     if (!canManage) return;
     setBusy(true);
-    const p = async () => {
+    const p = (async () => {
       const res = await updateGuild(guildId, { name, description });
       if (!res?.id) throw new Error(res?.message ?? "Update failed");
       upsertGuild(res);
-    };
-    toast.promise(p(), { loading: "Saving", success: "Saved", error: (e) => `Error: ${e.message}` });
-    p().finally(() => setBusy(false));
+    })();
+    toast.promise(p, { loading: "Saving", success: "Saved", error: (e) => `Error: ${e.message}` });
+    p.finally(() => setBusy(false));
   }
 
   return (
@@ -374,7 +379,7 @@ function ChannelsPane({ guildId }: { guildId: string }) {
                 <Button
                   size="icon"
                   variant="ghost"
-                  className="opacity-0 group-hover:opacity-100"
+                  className="md:opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100"
                   onClick={() => setEditing(c)}
                 >
                   <Settings className="size-4" />
@@ -382,7 +387,7 @@ function ChannelsPane({ guildId }: { guildId: string }) {
                 <Button
                   size="icon"
                   variant="ghost"
-                  className="opacity-0 group-hover:opacity-100"
+                  className="md:opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100"
                   onClick={() => handleDelete(c.id)}
                 >
                   <Trash2 className="size-4 text-destructive" />
@@ -454,7 +459,11 @@ function RolesPane({ guildId }: { guildId: string }) {
           <div key={r.id} className="flex items-center gap-3 p-3 group hover:bg-muted/30">
             <span
               className="size-3 rounded-full ring-1 ring-border"
-              style={{ background: r.color ? "#" + r.color.toString(16).padStart(6, "0") : "#888" }}
+              style={{
+                background: r.color
+                  ? "#" + r.color.toString(16).padStart(6, "0")
+                  : "var(--muted-foreground)",
+              }}
             />
             <span className="font-medium">{r.name}</span>
             {r.hoist && (
@@ -473,7 +482,7 @@ function RolesPane({ guildId }: { guildId: string }) {
                 <Button
                   size="icon"
                   variant="ghost"
-                  className="opacity-0 group-hover:opacity-100"
+                  className="md:opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100"
                   onClick={() => setEditing(r)}
                 >
                   <Settings className="size-4" />
@@ -482,7 +491,7 @@ function RolesPane({ guildId }: { guildId: string }) {
                   <Button
                     size="icon"
                     variant="ghost"
-                    className="opacity-0 group-hover:opacity-100"
+                    className="md:opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100"
                     onClick={() => handleDelete(r)}
                   >
                     <Trash2 className="size-4 text-destructive" />
@@ -634,6 +643,324 @@ function BansPane({ guildId }: { guildId: string }) {
             </div>
           ))}
         </div>
+      )}
+    </div>
+  );
+}
+
+interface AuditEntry {
+  id: string;
+  action_type: number;
+  user_id?: string | null;
+  target_id?: string | null;
+  reason?: string | null;
+  changes?: { key: string; old_value?: unknown; new_value?: unknown }[];
+  options?: Record<string, unknown>;
+}
+
+interface AuditUser {
+  id: string;
+  username: string;
+  global_name?: string | null;
+  avatar?: string | null;
+  bot?: boolean;
+}
+
+const AUDIT_LABEL: Record<number, string> = {
+  1: "Updated server",
+  10: "Created channel",
+  11: "Updated channel",
+  12: "Deleted channel",
+  13: "Created channel override",
+  14: "Updated channel override",
+  15: "Deleted channel override",
+  20: "Kicked member",
+  21: "Pruned members",
+  22: "Banned member",
+  23: "Unbanned member",
+  24: "Updated member",
+  25: "Updated member roles",
+  26: "Moved member",
+  27: "Disconnected member",
+  28: "Added bot",
+  30: "Created role",
+  31: "Updated role",
+  32: "Deleted role",
+  40: "Created invite",
+  41: "Updated invite",
+  42: "Deleted invite",
+  50: "Created webhook",
+  51: "Updated webhook",
+  52: "Deleted webhook",
+  60: "Created emoji",
+  61: "Updated emoji",
+  62: "Deleted emoji",
+  72: "Deleted message",
+  73: "Bulk deleted messages",
+  74: "Pinned message",
+  75: "Unpinned message",
+  80: "Created integration",
+  81: "Updated integration",
+  82: "Deleted integration",
+  83: "Created stage instance",
+  84: "Updated stage instance",
+  85: "Deleted stage instance",
+  90: "Created sticker",
+  91: "Updated sticker",
+  92: "Deleted sticker",
+  100: "Created scheduled event",
+  101: "Updated scheduled event",
+  102: "Deleted scheduled event",
+  110: "Created thread",
+  111: "Updated thread",
+  112: "Deleted thread",
+  121: "Banned member (auto-mod)",
+  140: "Created auto-mod rule",
+  141: "Updated auto-mod rule",
+  142: "Deleted auto-mod rule",
+  143: "Auto-mod blocked message",
+  144: "Auto-mod flagged message",
+  145: "Auto-mod timed out member",
+  150: "Updated voice channel status",
+  151: "Deleted voice channel status",
+};
+
+function snowflakeTimestamp(id: string): number {
+  try {
+    return Number(BigInt(id) >> 22n) + 1420070400000;
+  } catch {
+    return 0;
+  }
+}
+
+function formatChangeValue(value: unknown): string {
+  if (value == null) return "—";
+  if (Array.isArray(value)) {
+    if (value.length === 0) return "[]";
+    return value
+      .map((v) => {
+        if (v && typeof v === "object") {
+          const o = v as { name?: string; id?: string };
+          if (o.name && o.id) return `${o.name} (${o.id})`;
+          if (o.name) return o.name;
+          if (o.id) return o.id;
+          try {
+            return JSON.stringify(v);
+          } catch {
+            return "[object]";
+          }
+        }
+        return String(v);
+      })
+      .join(", ");
+  }
+  if (typeof value === "object") {
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return "[object]";
+    }
+  }
+  if (typeof value === "boolean") return value ? "true" : "false";
+  return String(value);
+}
+
+function humanizeChangeKey(key: string): string {
+  if (key === "$add") return "added roles";
+  if (key === "$remove") return "removed roles";
+  return key;
+}
+
+function AuditPane({ guildId }: { guildId: string }) {
+  const perms = useGuildPermissions(guildId);
+  const canView = can(perms, "View Audit Log");
+  const [entries, setEntries] = useState<AuditEntry[]>([]);
+  const [users, setUsers] = useState<Map<string, AuditUser>>(new Map());
+  const [busy, setBusy] = useState(false);
+  const [exhausted, setExhausted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [actionFilter, setActionFilter] = useState<string>("all");
+
+  async function load(before?: string) {
+    if (!canView) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await getAuditLog(guildId, {
+        limit: 50,
+        before,
+        actionType: actionFilter === "all" ? undefined : Number(actionFilter),
+      });
+      if ("error" in res) throw new Error(res.error);
+      const newEntries: AuditEntry[] = res.audit_log_entries ?? [];
+      const newUsers: AuditUser[] = res.users ?? [];
+      setUsers((cur) => {
+        const next = new Map(cur);
+        newUsers.forEach((u) => next.set(u.id, u));
+        return next;
+      });
+      setEntries((cur) => (before ? [...cur, ...newEntries] : newEntries));
+      if (newEntries.length < 50) setExhausted(true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load audit log");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  useEffect(() => {
+    setEntries([]);
+    setExhausted(false);
+    if (canView) load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [guildId, canView, actionFilter]);
+
+  const oldestId = entries[entries.length - 1]?.id;
+
+  return (
+    <div className="max-w-3xl space-y-4">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-center gap-2">
+          <ScrollText className="size-5" />
+          <h2 className="text-xl font-semibold">Audit log</h2>
+        </div>
+        <Select value={actionFilter} onValueChange={setActionFilter}>
+          <SelectTrigger className="w-full sm:w-56">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="max-h-72">
+            <SelectItem value="all">All actions</SelectItem>
+            {Object.entries(AUDIT_LABEL)
+              .sort(([, a], [, b]) => a.localeCompare(b))
+              .map(([k, label]) => (
+                <SelectItem key={k} value={k}>
+                  {label}
+                </SelectItem>
+              ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {!canView && (
+        <p className="text-xs text-destructive bg-destructive/10 px-3 py-2 rounded-md flex items-center gap-2">
+          <ShieldCheck className="size-3" /> Bot lacks View Audit Log permission.
+        </p>
+      )}
+      {error && (
+        <p className="text-xs text-destructive bg-destructive/10 px-3 py-2 rounded-md">
+          {error}
+        </p>
+      )}
+
+      {canView && entries.length === 0 && !busy && !error && (
+        <p className="text-sm text-muted-foreground">No audit log entries.</p>
+      )}
+
+      {entries.length > 0 && (
+        <ol className="border rounded-md divide-y">
+          {entries.map((e) => {
+            const u = e.user_id ? users.get(e.user_id) : null;
+            const ts = snowflakeTimestamp(e.id);
+            const label = AUDIT_LABEL[e.action_type] ?? `Action #${e.action_type}`;
+            return (
+              <li key={e.id} className="p-3 flex gap-3 hover:bg-muted/30 min-w-0">
+                <div className="size-7 rounded-full bg-muted shrink-0 overflow-hidden grid place-items-center mt-0.5">
+                  {u ? (
+                    <Image
+                      src={avatarUrl(u.id, u.avatar)}
+                      alt={u.username}
+                      width={28}
+                      height={28}
+                      unoptimized
+                    />
+                  ) : (
+                    <ScrollText className="size-3 text-muted-foreground" />
+                  )}
+                </div>
+                <div className="min-w-0 flex-1 text-sm">
+                  <div className="flex items-baseline gap-2 flex-wrap">
+                    <span className="font-medium truncate">
+                      {u ? (u.global_name ?? u.username) : "System"}
+                    </span>
+                    <span className="text-muted-foreground">{label.toLowerCase()}</span>
+                    {e.target_id && (
+                      <span className="text-[10px] font-mono text-muted-foreground/70">
+                        target {e.target_id}
+                      </span>
+                    )}
+                  </div>
+                  {e.reason && (
+                    <div className="text-xs text-muted-foreground italic mt-0.5 break-words">
+                      Reason: {e.reason}
+                    </div>
+                  )}
+                  {e.changes && e.changes.length > 0 && (
+                    <ul className="mt-1 space-y-0.5">
+                      {e.changes.slice(0, 6).map((c, i) => {
+                        const isAddRemove = c.key === "$add" || c.key === "$remove";
+                        const oldVal =
+                          c.old_value !== undefined ? formatChangeValue(c.old_value) : null;
+                        const newVal =
+                          c.new_value !== undefined ? formatChangeValue(c.new_value) : null;
+                        return (
+                          <li
+                            key={i}
+                            className="text-xs font-mono text-muted-foreground break-words"
+                          >
+                            <span className="text-foreground/80">
+                              {humanizeChangeKey(c.key)}
+                            </span>
+                            :{" "}
+                            {isAddRemove ? (
+                              <span className="text-foreground">
+                                {(newVal ?? oldVal ?? "").slice(0, 120)}
+                              </span>
+                            ) : (
+                              <>
+                                {oldVal != null && (
+                                  <span className="line-through opacity-60">
+                                    {oldVal.slice(0, 80)}
+                                  </span>
+                                )}{" "}
+                                {newVal != null && (
+                                  <span className="text-foreground">
+                                    {newVal.slice(0, 80)}
+                                  </span>
+                                )}
+                              </>
+                            )}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </div>
+                <div className="text-[10px] font-mono text-muted-foreground shrink-0 mt-0.5 text-right">
+                  {ts ? new Date(ts).toLocaleString() : ""}
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+      )}
+
+      {canView && entries.length > 0 && !exhausted && (
+        <div className="flex justify-center">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={busy}
+            onClick={() => load(oldestId)}
+          >
+            {busy ? <LoaderCircle className="size-3 mr-1 animate-spin" /> : null}
+            Load older
+          </Button>
+        </div>
+      )}
+      {canView && busy && entries.length === 0 && (
+        <p className="text-sm text-muted-foreground flex items-center gap-2">
+          <LoaderCircle className="size-3 animate-spin" /> Loading…
+        </p>
       )}
     </div>
   );

@@ -86,6 +86,89 @@ export async function getGuildMembers(guildId: string, limit = 1000) {
   return res.json();
 }
 
+export async function getGuildMember(guildId: string, userId: string) {
+  const res = await authed(`/guilds/${guildId}/members/${userId}`, {
+    cache: "no-store",
+  });
+  if (!res.ok) return null;
+  return res.json();
+}
+
+export async function searchGuildMembers(guildId: string, query: string, limit = 8) {
+  const q = query.trim();
+  if (!q) return [];
+  const res = await authed(
+    `/guilds/${guildId}/members/search?query=${encodeURIComponent(q)}&limit=${limit}`,
+    { cache: "no-store" },
+  );
+  if (!res.ok) return [];
+  const data = await res.json();
+  return Array.isArray(data) ? data : [];
+}
+
+export async function getUser(userId: string) {
+  const res = await authed(`/users/${userId}`, { cache: "no-store" });
+  if (!res.ok) return null;
+  return res.json();
+}
+
+export async function getAuditLog(
+  guildId: string,
+  options?: { limit?: number; before?: string; actionType?: number; userId?: string },
+) {
+  const params = new URLSearchParams();
+  params.set("limit", String(options?.limit ?? 50));
+  if (options?.before) params.set("before", options.before);
+  if (options?.actionType !== undefined) params.set("action_type", String(options.actionType));
+  if (options?.userId) params.set("user_id", options.userId);
+  const res = await authed(`/guilds/${guildId}/audit-logs?${params.toString()}`, {
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    return { error: body.message ?? `HTTP ${res.status}` };
+  }
+  return res.json();
+}
+
+export async function getChannelWebhooks(channelId: string) {
+  const res = await authed(`/channels/${channelId}/webhooks`, { cache: "no-store" });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    return { error: body.message ?? `HTTP ${res.status}` };
+  }
+  return res.json();
+}
+
+export async function createWebhook(channelId: string, name: string, avatar?: string | null) {
+  const body: Record<string, unknown> = { name };
+  if (avatar !== undefined) body.avatar = avatar;
+  const res = await authed(`/channels/${channelId}/webhooks`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  return res.json();
+}
+
+export async function deleteWebhook(webhookId: string) {
+  const res = await authed(`/webhooks/${webhookId}`, { method: "DELETE" });
+  if (res.status === 204) return { ok: true };
+  return res.json().catch(() => ({ ok: false }));
+}
+
+export async function updateWebhook(
+  webhookId: string,
+  data: Partial<{ name: string; avatar: string | null; channel_id: string }>,
+) {
+  const res = await authed(`/webhooks/${webhookId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  return res.json();
+}
+
 export async function updateBotInfo(
   data: Partial<{ username: string; avatar: string | null; banner: string | null }>,
 ) {
@@ -119,12 +202,19 @@ export async function updateApplication(
   return res.json();
 }
 
-export async function getInviteCode(id: string | number | undefined) {
+export async function getInviteCode(
+  id: string | number | undefined,
+  options?: { maxAge?: number; maxUses?: number; unique?: boolean },
+) {
   if (!id) return null;
   const res = await authed(`/channels/${id}/invites`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ max_age: 86400, max_uses: 0, unique: false }),
+    body: JSON.stringify({
+      max_age: options?.maxAge ?? 3600,
+      max_uses: options?.maxUses ?? 1,
+      unique: options?.unique ?? true,
+    }),
   });
   const data = await res.json();
   return data.code;

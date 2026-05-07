@@ -11,6 +11,8 @@ import { IntentBanner } from "@/components/discord/intent-warning";
 import { getGuildMembers } from "@/api/data/actions";
 import { INTENTS } from "@/lib/discord/constants";
 import type { GuildMember, Presence, Role } from "@/lib/discord/types";
+import { readableRoleColor } from "@/lib/discord/role-color";
+import { useResolvedTheme } from "@/hooks/use-resolved-theme";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -26,6 +28,7 @@ const PAGE_SIZE = 60;
 const PAGE_INC = 60;
 
 export function MemberList({ guildId }: Props) {
+  const theme = useResolvedTheme();
   const guild = useRealtimeStore((s) => s.guilds.get(guildId));
   const membersRaw = useRealtimeStore((s) => s.members.get(guildId));
   const presencesRaw = useRealtimeStore((s) => s.presences.get(guildId));
@@ -160,7 +163,7 @@ export function MemberList({ guildId }: Props) {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search"
-          className="h-8 text-xs"
+          className="h-9 md:h-8 text-base md:text-xs"
         />
       </div>
       <IntentBanner reason="members" />
@@ -179,7 +182,12 @@ export function MemberList({ guildId }: Props) {
                 className="text-[10px] uppercase tracking-[0.18em] font-semibold px-2 py-1 text-muted-foreground mt-2"
                 style={
                   g.role && g.role.id !== "offline" && g.role.color
-                    ? { color: "#" + g.role.color.toString(16).padStart(6, "0") }
+                    ? {
+                        color: readableRoleColor(
+                          "#" + g.role.color.toString(16).padStart(6, "0"),
+                          theme,
+                        ),
+                      }
                     : undefined
                 }
               >
@@ -218,7 +226,12 @@ export function MemberList({ guildId }: Props) {
                     className="text-sm truncate"
                     style={
                       colorRole
-                        ? { color: "#" + colorRole.color.toString(16).padStart(6, "0") }
+                        ? {
+                            color: readableRoleColor(
+                              "#" + colorRole.color.toString(16).padStart(6, "0"),
+                              theme,
+                            ),
+                          }
                         : undefined
                     }
                   >

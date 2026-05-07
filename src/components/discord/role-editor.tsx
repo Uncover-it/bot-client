@@ -59,7 +59,7 @@ export function RoleEditor({ guildId, role, open, onOpenChange }: Props) {
     if (!canManage) return;
     setBusy(true);
     const colorInt = parseInt(color.replace("#", ""), 16);
-    const p = async () => {
+    const p = (async () => {
       const res = await updateRole(guildId, role.id, {
         name,
         color: colorInt,
@@ -71,9 +71,9 @@ export function RoleEditor({ guildId, role, open, onOpenChange }: Props) {
       const next = (guild?.roles ?? []).filter((r) => r.id !== res.id).concat(res);
       upsertRoles(guildId, next);
       onOpenChange(false);
-    };
-    toast.promise(p(), { loading: "Saving role", success: "Role updated", error: (e) => `Error: ${e.message}` });
-    p().finally(() => setBusy(false));
+    })();
+    toast.promise(p, { loading: "Saving role", success: "Role updated", error: (e) => `Error: ${e.message}` });
+    p.finally(() => setBusy(false));
   }
 
   const groups = {

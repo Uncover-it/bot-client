@@ -22,7 +22,8 @@ export default function Home() {
             <CardHeader>
               <CardTitle>Enter your bot token</CardTitle>
               <CardDescription>
-                We don&apos;t store your data :)
+                Stored only in an httpOnly session cookie. Self-host this client if
+                you do not want a third party in the loop.
               </CardDescription>
             </CardHeader>
             <CardContent>

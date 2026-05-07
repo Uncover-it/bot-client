@@ -89,14 +89,14 @@ export function ChannelSettingsDialog({ guildId, channel, open, onOpenChange }: 
       patch.default_thread_rate_limit_per_user = threadSlow;
     }
 
-    const p = async () => {
+    const p = (async () => {
       const res: Channel = await updateChannel(channel.id, patch);
       if (!res?.id) throw new Error("Update failed");
       upsertChannel(res);
       onOpenChange(false);
-    };
-    toast.promise(p(), { loading: "Saving", success: "Saved", error: (e) => `Error: ${e.message}` });
-    p().finally(() => setBusy(false));
+    })();
+    toast.promise(p, { loading: "Saving", success: "Saved", error: (e) => `Error: ${e.message}` });
+    p.finally(() => setBusy(false));
   }
 
   async function destroy() {

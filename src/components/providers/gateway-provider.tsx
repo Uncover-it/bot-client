@@ -1,21 +1,35 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRealtimeStore } from "@/lib/store";
 import { useGateway } from "@/hooks/use-gateway";
 import { pingRest } from "@/api/data/actions";
+import { getSessionToken } from "@/api/session/actions";
 import type { User } from "@/lib/discord/types";
 
 interface Props {
-  token: string | null;
   initialUser?: User | null;
   children: React.ReactNode;
 }
 
-export function GatewayProvider({ token, initialUser, children }: Props) {
+export function GatewayProvider({ initialUser, children }: Props) {
+  const [token, setToken] = useState<string | null>(null);
   useGateway(token);
   const setUser = useRealtimeStore((s) => s.setUser);
   const setRest = useRealtimeStore((s) => s.setRestPing);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const t = await getSessionToken();
+        if (alive && t) setToken(t);
+      } catch {}
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (initialUser) setUser(initialUser);

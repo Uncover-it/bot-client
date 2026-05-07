@@ -14,13 +14,13 @@ async function AuthedShell({ children }: { children: React.ReactNode }) {
   if (!user) redirect("/");
 
   return (
-    <GatewayProvider token={token} initialUser={user}>
+    <GatewayProvider initialUser={user}>
       <SidebarProvider defaultOpen>
         <div className="flex w-full min-w-0 max-w-full overflow-hidden">
           <AppSidebar />
           <main className="relative flex-1 min-w-0 max-w-full overflow-hidden">
-            <div className="absolute top-0 left-0 z-50">
-              <SidebarTrigger className="mt-4 ml-1.5 shrink-0 fixed" />
+            <div className="absolute top-0 left-0 z-50 pl-[max(0px,env(safe-area-inset-left))] pt-[max(0px,env(safe-area-inset-top))]">
+              <SidebarTrigger className="mt-3 ml-1.5 size-9 shrink-0 fixed" />
             </div>
             {children}
             <Toaster position="top-right" />
