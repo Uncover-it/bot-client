@@ -18,7 +18,7 @@ function EmojiPicker({
   return (
     <EmojiPickerPrimitive.Root
       className={cn(
-        "bg-popover text-popover-foreground isolate flex h-full w-fit flex-col overflow-hidden rounded-md",
+        "bg-popover text-popover-foreground isolate flex h-full w-full flex-col overflow-hidden rounded-md",
         className
       )}
       data-slot="emoji-picker"
@@ -48,7 +48,11 @@ function EmojiPickerSearch({
 
 function EmojiPickerRow({ children, ...props }: EmojiPickerListRowProps) {
   return (
-    <div {...props} className="scroll-my-1.5 px-1.5" data-slot="emoji-picker-row">
+    <div
+      {...props}
+      className="scroll-my-1.5 flex justify-between px-1.5"
+      data-slot="emoji-picker-row"
+    >
       {children}
     </div>
   );
@@ -63,7 +67,7 @@ function EmojiPickerEmoji({
     <button
       {...props}
       className={cn(
-        "flex size-8 items-center justify-center rounded-md text-lg data-[active]:bg-neutral-100 dark:data-[active]:bg-neutral-800",
+        "flex size-8 shrink-0 items-center justify-center rounded-md text-lg data-[active]:bg-muted",
         className
       )}
       data-slot="emoji-picker-emoji"
@@ -80,7 +84,7 @@ function EmojiPickerCategoryHeader({
   return (
     <div
       {...props}
-      className="bg-white px-3 pt-3 pb-1.5 font-medium text-neutral-600 text-xs dark:bg-neutral-900 dark:text-neutral-400"
+      className="bg-popover px-3 pt-3 pb-1.5 font-medium text-muted-foreground text-[10px] uppercase tracking-[0.18em]"
       data-slot="emoji-picker-category-header"
     >
       {category.label}

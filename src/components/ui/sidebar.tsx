@@ -8,7 +8,7 @@ import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
 	Tooltip,
@@ -257,6 +257,9 @@ const Sidebar = React.forwardRef<
 						}
 						side={side}
 					>
+						<SheetHeader className="sr-only">
+							<SheetTitle>Sidebar</SheetTitle>
+						</SheetHeader>
 						<div className="flex h-full w-full flex-col">{children}</div>
 					</SheetContent>
 				</Sheet>
@@ -734,10 +737,11 @@ const SidebarMenuSkeleton = React.forwardRef<
 		showIcon?: boolean;
 	}
 >(({ className, showIcon = false, ...props }, ref) => {
-	// Random width between 50 to 90%.
+	const [mounted, setMounted] = React.useState(false);
 	const [width] = React.useState(() => {
 		return `${Math.floor(Math.random() * 40) + 50}%`;
 	});
+	React.useEffect(() => setMounted(true), []);
 
 	return (
 		<div
@@ -757,7 +761,7 @@ const SidebarMenuSkeleton = React.forwardRef<
 				data-sidebar="menu-skeleton-text"
 				style={
 					{
-						"--skeleton-width": width,
+						"--skeleton-width": mounted ? width : "70%",
 					} as React.CSSProperties
 				}
 			/>
