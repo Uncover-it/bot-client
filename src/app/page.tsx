@@ -7,6 +7,8 @@ import {
 } from "@/components/ui/card";
 import LoginForm from "@/components/login";
 import Link from "next/link";
+import { Suspense } from "react";
+import { YearFooter } from "@/components/year-footer";
 
 export default function Home() {
   return (
@@ -31,7 +33,9 @@ export default function Home() {
         <footer className="py-4 max-w-sm w-full">
           <div className="flex flex-col items-center justify-between gap-4">
             <p className="text-sm text-muted-foreground">
-              &copy; {new Date().getFullYear()} Uncover it. All rights reserved.
+              <Suspense fallback={null}>
+                <YearFooter />
+              </Suspense>
             </p>
             <div className="flex gap-4 justify-end items-center">
               <Link

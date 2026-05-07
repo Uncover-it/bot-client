@@ -1,15 +1,22 @@
 "use server";
+
 import { cookies } from "next/headers";
+import { API_BASE } from "@/lib/discord/constants";
 
 export async function validateToken(token: string) {
-  const response = await fetch("https://discord.com/api/v10/users/@me", {
-    headers: {
-      Authorization: `Bot ${token}`,
-    },
+  const res = await fetch(`${API_BASE}/users/@me`, {
+    headers: { Authorization: `Bot ${token}` },
+    cache: "no-store",
   });
-  if (response.status === 200) {
-    const cookieStore = await cookies();
-    cookieStore.set("token", `${token}`);
+  const data = await res.json();
+  if (res.ok && data?.id) {
+    const c = await cookies();
+    c.set("token", token, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+    });
   }
-  return response.json();
+  return data;
 }

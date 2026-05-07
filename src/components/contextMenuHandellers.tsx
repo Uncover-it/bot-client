@@ -44,11 +44,11 @@ export function CopyMessage({ message }: { message: string }) {
   );
 }
 
-export function InviteLink({ id }: { id: number | undefined }) {
+export function InviteLink({ id }: { id: number | string | undefined }) {
   function handleInv() {
     const invPormise = async () => {
       const link = await getInviteCode(id);
-      if (id !== undefined) {
+      if (id !== undefined && link) {
         navigator.clipboard.writeText(`discord.gg/${link}`);
       }
     };

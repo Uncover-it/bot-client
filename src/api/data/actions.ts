@@ -1,153 +1,167 @@
 "use server";
+
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { API_BASE } from "@/lib/discord/constants";
+
+async function token(): Promise<string> {
+  const c = await cookies();
+  const t = c.get("token")?.value;
+  if (!t) throw new Error("No token");
+  return t;
+}
+
+async function authed(path: string, init: RequestInit = {}): Promise<Response> {
+  const t = await token();
+  return fetch(`${API_BASE}${path}`, {
+    ...init,
+    headers: {
+      ...init.headers,
+      Authorization: `Bot ${t}`,
+    },
+  });
+}
 
 export async function logout() {
-  const cookieStore = await cookies();
-  cookieStore.delete("token");
+  const c = await cookies();
+  c.delete("token");
   redirect("/");
 }
 
 export async function getBotInfo() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("token")?.value;
-  const response = await fetch("https://discord.com/api/v10/users/@me", {
-    headers: {
-      Authorization: `Bot ${token}`,
-    },
-    next: {
-      revalidate: 120,
-    },
-  });
-  return response.json();
+  const res = await authed("/users/@me", { cache: "no-store" });
+  return res.json();
+}
+
+interface RawGuild {
+  id: string;
+  name: string;
+  icon: string | null;
+  permissions: string;
+  features: string[];
 }
 
 export async function getServers() {
-  interface ServerProps {
-    id: number;
-    name: string;
-    icon: string | null;
-    features: string[];
-  }
-  const cookieStore = await cookies();
-  const token = cookieStore.get("token")?.value;
-  const guildsResponse = await fetch(
-    "https://discord.com/api/v10/users/@me/guilds",
-    {
-      headers: {
-        Authorization: `Bot ${token}`,
-      },
-      next: {
-        revalidate: 120,
-      },
-    },
-  );
-  const guilds = await guildsResponse.json();
-  const guildsWithChannels = await Promise.all(
-    guilds.map(async (guild: ServerProps) => {
-      const channelsResponse = await fetch(
-        `https://discord.com/api/v10/guilds/${guild.id}/channels`,
-        {
-          headers: {
-            Authorization: `Bot ${token}`,
-          },
-          next: {
-            revalidate: 120,
-          },
-        },
-      );
+  const guildsRes = await authed("/users/@me/guilds", { cache: "no-store" });
+  const guilds: RawGuild[] = await guildsRes.json();
+  if (!Array.isArray(guilds)) return [];
 
-      let channels = [];
-      if (channelsResponse.ok) {
-        channels = await channelsResponse.json();
-      }
-      return { ...guild, channels };
+  const withChannels = await Promise.all(
+    guilds.map(async (g) => {
+      const cRes = await authed(`/guilds/${g.id}/channels`, {
+        next: { revalidate: 60 },
+      });
+      const channels = cRes.ok ? await cRes.json() : [];
+      return { ...g, channels };
     }),
   );
-
-  return guildsWithChannels;
+  return withChannels;
 }
 
-export async function updateBotInfo(username: string) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("token")?.value;
-  const response = await fetch("https://discord.com/api/users/@me", {
-    method: "PATCH",
-    headers: {
-      Authorization: `Bot ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ username: username }),
+export async function getGuild(guildId: string) {
+  const res = await authed(`/guilds/${guildId}?with_counts=true`, {
+    next: { revalidate: 30 },
   });
-  return response.json();
+  return res.json();
 }
 
-export async function getInviteCode(id: number | undefined) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("token")?.value;
-  const response = await fetch(
-    `https://discord.com/api/v10/channels/${id}/invites`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bot ${token}`,
-      },
-      cache: "force-cache",
-    },
-  );
-  const data = await response.json();
+export async function getGuildRoles(guildId: string) {
+  const res = await authed(`/guilds/${guildId}/roles`, {
+    next: { revalidate: 30 },
+  });
+  return res.json();
+}
+
+export async function getGuildChannels(guildId: string) {
+  const res = await authed(`/guilds/${guildId}/channels`, {
+    next: { revalidate: 30 },
+  });
+  return res.json();
+}
+
+export async function getGuildMembers(guildId: string, limit = 1000) {
+  const res = await authed(`/guilds/${guildId}/members?limit=${limit}`, {
+    cache: "no-store",
+  });
+  return res.json();
+}
+
+export async function updateBotInfo(
+  data: Partial<{ username: string; avatar: string | null; banner: string | null }>,
+) {
+  const res = await authed("/users/@me", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  return res.json();
+}
+
+export async function getCurrentApplication() {
+  const res = await authed("/applications/@me", { cache: "no-store" });
+  return res.json();
+}
+
+export async function updateApplication(
+  data: Partial<{
+    description: string;
+    icon: string | null;
+    cover_image: string | null;
+    interactions_endpoint_url: string | null;
+    tags: string[];
+  }>,
+) {
+  const res = await authed("/applications/@me", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  return res.json();
+}
+
+export async function getInviteCode(id: string | number | undefined) {
+  if (!id) return null;
+  const res = await authed(`/channels/${id}/invites`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ max_age: 86400, max_uses: 0, unique: false }),
+  });
+  const data = await res.json();
   return data.code;
 }
 
 export async function sendMessage(
-  id: string,
+  channelId: string,
   tts: boolean,
   text?: string,
   files?: (File | { name?: string; type?: string; data?: ArrayBuffer })[],
   stickerId?: string,
+  replyTo?: string,
 ) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("token")?.value;
+  const t = await token();
+  const ref = replyTo
+    ? { message_reference: { message_id: replyTo, fail_if_not_exists: false } }
+    : {};
 
   if (!files || files.length === 0) {
-    const payload: { content?: string; tts: boolean; sticker_ids?: string[] } =
-      {
-        tts,
-      };
+    const payload: Record<string, unknown> = { tts, ...ref };
+    if (text) payload.content = text;
+    if (stickerId) payload.sticker_ids = [stickerId];
 
-    if (text) {
-      payload.content = text;
-    }
-
-    if (stickerId) {
-      payload.sticker_ids = [stickerId];
-    }
-
-    const response = await fetch(
-      `https://discord.com/api/v10/channels/${id}/messages`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bot ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
+    const res = await fetch(`${API_BASE}/channels/${channelId}/messages`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bot ${t}`,
+        "Content-Type": "application/json",
       },
-    );
-    return response.json();
+      body: JSON.stringify(payload),
+    });
+    return res.json();
   }
 
   const form = new FormData();
-
-  const payload: { content: string; tts: boolean; sticker_ids?: string[] } = {
-    content: text || "",
-    tts,
-  };
-
-  if (stickerId) {
-    payload.sticker_ids = [stickerId];
-  }
-
+  const payload: Record<string, unknown> = { content: text ?? "", tts, ...ref };
+  if (stickerId) payload.sticker_ids = [stickerId];
   form.append("payload_json", JSON.stringify(payload));
 
   for (let i = 0; i < files.length; i++) {
@@ -162,34 +176,36 @@ export async function sendMessage(
     }
   }
 
-  const response = await fetch(
-    `https://discord.com/api/v10/channels/${id}/messages`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bot ${token}`,
-      },
-      body: form,
-    },
-  );
-
-  return response.json();
+  const res = await fetch(`${API_BASE}/channels/${channelId}/messages`, {
+    method: "POST",
+    headers: { Authorization: `Bot ${t}` },
+    body: form,
+  });
+  return res.json();
 }
 
-export async function getMessages(id: string) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("token")?.value;
-  const response = await fetch(
-    `https://discord.com/api/v10/channels/${id}/messages?limit=100`,
-    {
-      headers: {
-        Authorization: `Bot ${token}`,
-        "Content-Type": "application/json",
-      },
-    },
-  );
+export async function editMessage(channelId: string, messageId: string, content: string) {
+  const res = await authed(`/channels/${channelId}/messages/${messageId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content }),
+  });
+  return res.json();
+}
 
-  return response.json();
+export async function getMessages(channelId: string, before?: string) {
+  const qs = new URLSearchParams({ limit: "50" });
+  if (before) qs.set("before", before);
+  const res = await authed(`/channels/${channelId}/messages?${qs}`, {
+    cache: "no-store",
+  });
+  return res.json();
+}
+
+export async function pingRest() {
+  const start = Date.now();
+  await authed("/gateway", { cache: "no-store" });
+  return Date.now() - start;
 }
 
 export async function setTimeout(
@@ -197,110 +213,186 @@ export async function setTimeout(
   userId: string,
   duration: string | null,
 ) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("token")?.value;
-  const response = await fetch(
-    `https://discord.com/api/v10/guilds/${serverId}/members/${userId}`,
-    {
-      method: "PATCH",
-      headers: {
-        Authorization: `Bot ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ communication_disabled_until: duration }),
-    },
-  );
-  return response.json();
+  const res = await authed(`/guilds/${serverId}/members/${userId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ communication_disabled_until: duration }),
+  });
+  return res.json();
 }
 
 export async function kick(serverId: string, userId: string) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("token")?.value;
-  const response = await fetch(
-    `https://discord.com/api/v10/guilds/${serverId}/members/${userId}`,
-    {
-      method: "DELETE",
-      headers: {
-        Authorization: `Bot ${token}`,
-      },
-    },
-  );
-  return response.json();
+  const res = await authed(`/guilds/${serverId}/members/${userId}`, { method: "DELETE" });
+  return res.ok ? { ok: true } : res.json();
 }
 
-export async function ban(serverId: string, userId: string) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("token")?.value;
-  const response = await fetch(
-    `https://discord.com/api/v10/guilds/${serverId}/bans/${userId}`,
-    {
-      method: "PUT",
-      headers: {
-        Authorization: `Bot ${token}`,
-      },
-    },
-  );
-  return response.json();
+export async function ban(serverId: string, userId: string, deleteMessageDays = 0) {
+  const res = await authed(`/guilds/${serverId}/bans/${userId}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ delete_message_seconds: deleteMessageDays * 86400 }),
+  });
+  return res.ok ? { ok: true } : res.json();
+}
+
+export async function unban(serverId: string, userId: string) {
+  const res = await authed(`/guilds/${serverId}/bans/${userId}`, { method: "DELETE" });
+  return res.ok ? { ok: true } : res.json();
+}
+
+export async function getGuildBans(serverId: string, limit = 100) {
+  const res = await authed(`/guilds/${serverId}/bans?limit=${limit}`, { cache: "no-store" });
+  return res.json();
+}
+
+export async function addMemberRole(guildId: string, userId: string, roleId: string) {
+  const res = await authed(`/guilds/${guildId}/members/${userId}/roles/${roleId}`, {
+    method: "PUT",
+  });
+  return res.ok ? { ok: true } : res.json();
+}
+
+export async function removeMemberRole(guildId: string, userId: string, roleId: string) {
+  const res = await authed(`/guilds/${guildId}/members/${userId}/roles/${roleId}`, {
+    method: "DELETE",
+  });
+  return res.ok ? { ok: true } : res.json();
+}
+
+export async function getActiveThreads(guildId: string) {
+  const res = await authed(`/guilds/${guildId}/threads/active`, { cache: "no-store" });
+  return res.json();
+}
+
+export async function getChannel(channelId: string) {
+  const res = await authed(`/channels/${channelId}`, { cache: "no-store" });
+  return res.json();
 }
 
 export async function deleteMessage(channelId: string, messageId: string) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("token")?.value;
-  const response = await fetch(
-    `https://discord.com/api/v10/channels/${channelId}/messages/${messageId}`,
-    {
-      method: "DELETE",
-      headers: {
-        Authorization: `Bot ${token}`,
-      },
-    },
-  );
-  return response;
+  return authed(`/channels/${channelId}/messages/${messageId}`, { method: "DELETE" });
 }
 
 export async function pinMessage(channelId: string, messageId: string) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("token")?.value;
-  const response = await fetch(
-    `https://discord.com/api/v10/channels/${channelId}/pins/${messageId}`,
-    {
-      method: "PUT",
-      headers: {
-        Authorization: `Bot ${token}`,
-      },
-    },
-  );
-  return response.json();
+  const res = await authed(`/channels/${channelId}/pins/${messageId}`, { method: "PUT" });
+  return res.ok ? { ok: true } : res.json();
 }
 
 export async function unpinMessage(channelId: string, messageId: string) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("token")?.value;
-  const response = await fetch(
-    `https://discord.com/api/v10/channels/${channelId}/pins/${messageId}`,
-    {
-      method: "DELETE",
-      headers: {
-        Authorization: `Bot ${token}`,
-      },
-    },
-  );
-  return response.json();
+  const res = await authed(`/channels/${channelId}/pins/${messageId}`, { method: "DELETE" });
+  return res.ok ? { ok: true } : res.json();
 }
 
 export async function getStickers(serverId: string) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("token")?.value;
-  const response = await fetch(
-    `https://discord.com/api/v10/guilds/${serverId}/stickers`,
-    {
-      headers: {
-        Authorization: `Bot ${token}`,
-      },
-      next: {
-        revalidate: 120,
-      },
-    },
+  const res = await authed(`/guilds/${serverId}/stickers`, {
+    next: { revalidate: 120 },
+  });
+  return res.json();
+}
+
+export async function createChannel(
+  guildId: string,
+  data: { name: string; type: number; topic?: string; parent_id?: string },
+) {
+  const res = await authed(`/guilds/${guildId}/channels`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  return res.json();
+}
+
+export async function updateChannel(
+  channelId: string,
+  data: Partial<{
+    name: string;
+    topic: string;
+    nsfw: boolean;
+    rate_limit_per_user: number;
+    bitrate: number;
+    user_limit: number;
+    default_auto_archive_duration: number;
+    default_thread_rate_limit_per_user: number;
+    position: number;
+    parent_id: string | null;
+  }>,
+) {
+  const res = await authed(`/channels/${channelId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  return res.json();
+}
+
+export async function deleteChannel(channelId: string) {
+  const res = await authed(`/channels/${channelId}`, { method: "DELETE" });
+  return res.ok ? { ok: true } : res.json();
+}
+
+export async function triggerTyping(channelId: string) {
+  await authed(`/channels/${channelId}/typing`, { method: "POST" });
+}
+
+export async function updateGuild(
+  guildId: string,
+  data: Partial<{ name: string; description: string }>,
+) {
+  const res = await authed(`/guilds/${guildId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  return res.json();
+}
+
+export async function updateRole(
+  guildId: string,
+  roleId: string,
+  data: Partial<{ name: string; color: number; hoist: boolean; mentionable: boolean; permissions: string }>,
+) {
+  const res = await authed(`/guilds/${guildId}/roles/${roleId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  return res.json();
+}
+
+export async function createRole(
+  guildId: string,
+  data: Partial<{ name: string; color: number; hoist: boolean; mentionable: boolean; permissions: string }>,
+) {
+  const res = await authed(`/guilds/${guildId}/roles`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  return res.json();
+}
+
+export async function deleteRole(guildId: string, roleId: string) {
+  const res = await authed(`/guilds/${guildId}/roles/${roleId}`, { method: "DELETE" });
+  return res.ok ? { ok: true } : res.json();
+}
+
+export async function getGuildEmojis(guildId: string) {
+  const res = await authed(`/guilds/${guildId}/emojis`, {
+    next: { revalidate: 120 },
+  });
+  return res.json();
+}
+
+export async function addReaction(channelId: string, messageId: string, emoji: string) {
+  await authed(
+    `/channels/${channelId}/messages/${messageId}/reactions/${encodeURIComponent(emoji)}/@me`,
+    { method: "PUT" },
   );
-  return response.json();
+}
+
+export async function removeReaction(channelId: string, messageId: string, emoji: string) {
+  await authed(
+    `/channels/${channelId}/messages/${messageId}/reactions/${encodeURIComponent(emoji)}/@me`,
+    { method: "DELETE" },
+  );
 }
