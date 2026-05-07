@@ -622,8 +622,8 @@ function ActivityCard({ activity }: { activity: Activity }) {
 
   return (
     <div className="rounded-md border bg-muted/30 p-2.5 text-xs">
-      <div className="text-[10px] uppercase font-semibold tracking-[0.18em] text-muted-foreground mb-1.5">
-        {verb}
+      <div className="text-[10px] uppercase font-semibold tracking-[0.18em] text-muted-foreground mb-1.5 truncate">
+        {verb} {activity.name}
       </div>
       <div className="flex gap-2.5">
         {largeAsset ? (
@@ -658,9 +658,8 @@ function ActivityCard({ activity }: { activity: Activity }) {
           </div>
         )}
         <div className="min-w-0 flex-1">
-          <div className="font-semibold truncate">{activity.name}</div>
           {activity.details && (
-            <div className="truncate text-muted-foreground">{activity.details}</div>
+            <div className="font-semibold truncate">{activity.details}</div>
           )}
           {activity.state && (
             <div className="truncate text-muted-foreground">{activity.state}</div>
