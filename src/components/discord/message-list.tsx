@@ -45,6 +45,7 @@ import {
 import { MessageItem } from "@/components/discord/message";
 import { MessageContent } from "@/components/discord/message-content";
 import { UserProfilePopover } from "@/components/discord/user-profile-popover";
+import { IntentBanner } from "@/components/discord/intent-warning";
 import { useRealtimeStore } from "@/lib/store";
 import type { GuildMember, Message } from "@/lib/discord/types";
 import type { ReplyTarget } from "@/components/discord/message-input";
@@ -389,6 +390,7 @@ export function MessageList({ channelId, serverId, postStarterId, onReply }: Pro
 
   return (
     <div className="relative flex-1 min-h-0 flex flex-col">
+      <IntentBanner reason="content" />
       <div
         ref={scrollRef}
         onScroll={onScroll}
