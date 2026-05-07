@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { DiscordAvatar } from "@/components/ui/discord-avatar";
 import { avatarUrl } from "@/lib/discord/cdn";
 import { UserProfilePopover } from "@/components/discord/user-profile-popover";
+import { IntentBanner } from "@/components/discord/intent-warning";
 import { getGuildMembers } from "@/api/data/actions";
 import { INTENTS } from "@/lib/discord/constants";
 import type { GuildMember, Presence, Role } from "@/lib/discord/types";
@@ -162,6 +163,7 @@ export function MemberList({ guildId }: Props) {
           className="h-8 text-xs"
         />
       </div>
+      <IntentBanner reason="members" />
       <div ref={scrollRef} onScroll={onScroll} className="flex-1 overflow-y-auto p-2">
         {!hasMembersIntent && members.length === 0 && (
           <p className="text-xs text-muted-foreground p-2">

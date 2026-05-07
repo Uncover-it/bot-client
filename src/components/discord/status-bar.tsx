@@ -1,19 +1,21 @@
 "use client";
 
-import { Activity, Wifi, WifiOff, Loader2 } from "lucide-react";
+import { Activity, ExternalLink, Loader2, ShieldAlert, Wifi, WifiOff } from "lucide-react";
+import Link from "next/link";
 import { useRealtimeStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { INTENTS } from "@/lib/discord/constants";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { devPortalUrl, getMissingPrivilegedIntents } from "@/components/discord/intent-warning";
 
 export function StatusBar() {
   const state = useRealtimeStore((s) => s.gatewayState);
   const ping = useRealtimeStore((s) => s.pingMs);
   const rest = useRealtimeStore((s) => s.restPingMs);
   const intents = useRealtimeStore((s) => s.activeIntents);
-  const degraded =
-    state === "ready" &&
-    !((intents & INTENTS.GUILD_MEMBERS) && (intents & INTENTS.GUILD_PRESENCES) && (intents & INTENTS.MESSAGE_CONTENT));
+  const appId = useRealtimeStore((s) => s.user?.id);
+
+  const missing = state === "ready" ? getMissingPrivilegedIntents(intents) : [];
+  const degraded = missing.length > 0;
 
   const dot =
     state === "ready"
@@ -48,9 +50,12 @@ export function StatusBar() {
   const Icon = state === "ready" ? Wifi : state === "disconnected" ? WifiOff : Loader2;
 
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <div className="hidden sm:flex items-center gap-1.5 text-[10px] uppercase tracking-[0.18em] font-mono px-2 py-1 rounded-md hover:bg-muted/50 cursor-default transition-colors">
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          className="hidden sm:flex items-center gap-1.5 text-[10px] uppercase tracking-[0.18em] font-mono px-2 py-1 rounded-md hover:bg-muted/50 cursor-pointer transition-colors"
+          aria-label="Connection details"
+        >
           <span className={cn("size-1.5 rounded-full", dot, state !== "ready" && "animate-pulse")} />
           <Icon
             className={cn(
@@ -62,10 +67,14 @@ export function StatusBar() {
           {state === "ready" && (
             <span className="text-muted-foreground/70">· {ping || "—"}ms</span>
           )}
-        </div>
-      </TooltipTrigger>
-      <TooltipContent side="bottom">
-        <div className="text-xs space-y-1 min-w-32">
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="end"
+        sideOffset={6}
+        className="w-80 p-0 overflow-hidden"
+      >
+        <div className="px-3 py-2.5 space-y-2 text-xs">
           <div className="flex items-center justify-between gap-3">
             <span className="text-muted-foreground">Gateway</span>
             <span className="font-mono">{ping || "—"}ms</span>
@@ -74,17 +83,38 @@ export function StatusBar() {
             <span className="text-muted-foreground">REST</span>
             <span className="font-mono">{rest || "—"}ms</span>
           </div>
-          <div className="border-t border-border/50 pt-1 flex items-center gap-1">
-            <Activity className="size-3" />
-            <span>{label}</span>
+          <div className="border-t border-border/50 pt-2 flex items-center gap-1.5">
+            <Activity className="size-3.5" />
+            <span className="font-medium">{label}</span>
           </div>
-          {degraded && (
-            <div className="text-[10px] text-yellow-600 dark:text-yellow-500">
-              Privileged intents disabled — enable in Dev Portal for member list, presence, message content.
-            </div>
-          )}
         </div>
-      </TooltipContent>
-    </Tooltip>
+        {degraded && (
+          <div className="border-t bg-yellow-500/10 px-3 py-2.5 text-xs text-yellow-700 dark:text-yellow-400 space-y-2">
+            <div className="flex items-start gap-1.5">
+              <ShieldAlert className="size-3.5 shrink-0 mt-0.5" />
+              <div className="font-medium leading-snug">
+                Privileged intents disabled
+              </div>
+            </div>
+            <ul className="pl-5 space-y-0.5 list-disc marker:text-yellow-600/70">
+              {missing.map((m) => (
+                <li key={m.key}>{m.label}</li>
+              ))}
+            </ul>
+            <p className="text-yellow-700/90 dark:text-yellow-400/80 leading-snug">
+              Enable these in the Developer Portal so the bot can read message content, members, and presence.
+            </p>
+            <Link
+              href={devPortalUrl(appId)}
+              target="_blank"
+              className="inline-flex items-center gap-1 font-medium underline-offset-2 hover:underline"
+            >
+              Open Dev Portal
+              <ExternalLink className="size-3" />
+            </Link>
+          </div>
+        )}
+      </PopoverContent>
+    </Popover>
   );
 }
