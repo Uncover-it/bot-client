@@ -24,13 +24,20 @@ async function authed(path: string, init: RequestInit = {}): Promise<Response> {
   });
 }
 
+const LIFE = {
+  seconds: { stale: 0, revalidate: 1, expire: 60 },
+  minutes: { stale: 60, revalidate: 60, expire: 300 },
+  hours: { stale: 300, revalidate: 3600, expire: 86400 },
+  days: { stale: 3600, revalidate: 86400, expire: 604800 },
+} as const;
+
 async function cachedJson(
   t: string,
   path: string,
-  life: "seconds" | "minutes" | "hours" | "days",
+  life: keyof typeof LIFE,
 ) {
   "use cache";
-  cacheLife(life);
+  cacheLife(LIFE[life]);
   const res = await fetch(`${API_BASE}${path}`, {
     headers: { Authorization: `Bot ${t}` },
   });
