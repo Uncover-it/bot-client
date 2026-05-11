@@ -115,7 +115,7 @@ export function AppSidebar() {
         </SidebarMenu>
       </SidebarHeader>
 
-      <SidebarContent>
+      <SidebarContent className="pt-1">
         {guilds.length === 0 ? (
           <SidebarMenu>
             {Array.from({ length: 5 }).map((_, i) => (

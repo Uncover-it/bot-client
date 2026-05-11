@@ -72,8 +72,19 @@ export function useGateway(token: string | null) {
 
     const prune = setInterval(() => store.getState().pruneTyping(), 3000);
 
+    const onVisibility = () => {
+      if (document.hidden) return;
+      const state = gw.getState();
+      if (state === "ready") return;
+      gw.reconnectNow();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("focus", onVisibility);
+
     return () => {
       clearInterval(prune);
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("focus", onVisibility);
       gw.disconnect();
       singleton = null;
       started.current = false;

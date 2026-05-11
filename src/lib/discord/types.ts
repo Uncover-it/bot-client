@@ -172,6 +172,7 @@ export interface Reaction {
   count: number;
   me: boolean;
   emoji: Emoji;
+  __pending?: boolean;
 }
 
 export interface StickerItem {
@@ -209,6 +210,9 @@ export interface Message {
   referenced_message?: Message | null;
   message_reference?: MessageReference;
   flags?: number;
+  nonce?: string | number;
+  __pending?: boolean;
+  __failed?: boolean;
 }
 
 export interface GatewayPayload {

@@ -175,7 +175,7 @@ export function ChannelView({ serverId, channelId }: Props) {
               postStarterId={postStarterId}
               onReply={setReply}
             />
-            <footer className="shrink-0 p-2 md:p-3 pt-2 pb-safe md:pb-3 border-t">
+            <footer className="shrink-0 p-2 md:p-3 pt-3 pb-safe md:pb-3 border-t">
               <MessageInput
                 channelId={channelId}
                 serverId={serverId}

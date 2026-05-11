@@ -1,7 +1,8 @@
 "use client";
 
-import { memo, useMemo, type ReactNode } from "react";
-import { CornerUpRight, Pin } from "lucide-react";
+import { memo, useEffect, useMemo, useRef, type ReactNode } from "react";
+import { CornerUpRight, Pin, AlertCircle } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { DiscordAvatar } from "@/components/ui/discord-avatar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -24,6 +25,9 @@ interface Props {
   storeMember?: GuildMember;
   mentionsMe?: boolean;
   isPostStarter?: boolean;
+  editing?: boolean;
+  onEditSave?: (next: string) => void;
+  onEditCancel?: () => void;
   rowContextMenu?: (m: Message, children: ReactNode) => ReactNode;
   authorMenu?: (m: Message) => React.ReactNode;
   nameWrapper?: (m: Message, children: ReactNode) => ReactNode;
@@ -91,6 +95,9 @@ export const MessageItem = memo(function MessageItem({
   storeMember,
   mentionsMe,
   isPostStarter,
+  editing,
+  onEditSave,
+  onEditCancel,
   rowContextMenu,
   authorMenu,
   nameWrapper,
@@ -99,6 +106,14 @@ export const MessageItem = memo(function MessageItem({
   mobileMenu,
 }: Props) {
   const grouped = shouldGroup(prev, message);
+  const editRef = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    if (!editing) return;
+    const ta = editRef.current;
+    if (!ta) return;
+    ta.focus();
+    ta.setSelectionRange(ta.value.length, ta.value.length);
+  }, [editing]);
   const theme = useResolvedTheme();
   const rawColor = useMemo(
     () => authorColor(message, guild, storeMember),
@@ -127,6 +142,7 @@ export const MessageItem = memo(function MessageItem({
           : isPostStarter
             ? "bg-primary/[0.04] hover:bg-primary/[0.08] border-l-2 border-primary/60"
             : "hover:bg-muted/30",
+        message.__failed && "bg-destructive/10",
       )}
     >
       {hoverToolbar && (
@@ -224,12 +240,77 @@ export const MessageItem = memo(function MessageItem({
           </div>
         )}
 
-        <div className="text-sm leading-snug">
-          {message.content && (
-            <MessageContent message={message} guild={guild} selfUserId={selfUserId} />
+        <div
+          className={cn(
+            "text-sm leading-snug",
+            message.__pending && !editing && "text-muted-foreground",
           )}
-          {message.edited_timestamp && (
-            <span className="text-[10px] text-muted-foreground ml-1">(edited)</span>
+        >
+          {editing ? (
+            <div className="space-y-1">
+              <Textarea
+                key={`edit-${message.id}`}
+                ref={editRef}
+                defaultValue={message.content ?? ""}
+                onKeyDown={(e) => {
+                  if (
+                    e.key === "Enter" &&
+                    !e.shiftKey &&
+                    !e.nativeEvent.isComposing
+                  ) {
+                    e.preventDefault();
+                    onEditSave?.(e.currentTarget.value);
+                  }
+                  if (e.key === "Escape") {
+                    e.preventDefault();
+                    onEditCancel?.();
+                  }
+                }}
+                className="resize-none min-h-10 max-h-48 field-sizing-content text-sm"
+              />
+              <div className="text-[10px] text-muted-foreground font-mono flex items-center gap-2">
+                <span>
+                  <kbd>esc</kbd> cancel
+                </span>
+                <span>
+                  <kbd>↵</kbd> save
+                </span>
+                <button
+                  type="button"
+                  onClick={() => onEditCancel?.()}
+                  className="ml-auto text-muted-foreground hover:text-foreground"
+                >
+                  cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onEditSave?.(editRef.current?.value ?? "")}
+                  className="text-primary hover:underline font-medium"
+                >
+                  save
+                </button>
+              </div>
+            </div>
+          ) : (
+            <span className="[&_p:last-child]:inline">
+              {message.content && (
+                <MessageContent
+                  message={message}
+                  guild={guild}
+                  selfUserId={selfUserId}
+                />
+              )}
+              {message.edited_timestamp && !message.__pending && !message.__failed && (
+                <span className="text-[10px] text-muted-foreground ml-1 align-baseline">
+                  (edited)
+                </span>
+              )}
+              {message.__failed && (
+                <span className="text-[10px] text-destructive ml-1 inline-flex items-center gap-1 align-baseline">
+                  <AlertCircle className="size-3" /> failed
+                </span>
+              )}
+            </span>
           )}
         </div>
 

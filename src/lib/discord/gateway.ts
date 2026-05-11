@@ -32,6 +32,7 @@ export class DiscordGateway {
   private ws: WebSocket | null = null;
   private heartbeatInterval = 0;
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private lastHeartbeatSent = 0;
   private lastSequence: number | null = null;
   private sessionId: string | null = null;
@@ -47,13 +48,39 @@ export class DiscordGateway {
   }
 
   connect() {
+    if (
+      this.ws &&
+      (this.ws.readyState === WebSocket.OPEN ||
+        this.ws.readyState === WebSocket.CONNECTING)
+    ) {
+      return;
+    }
     this.closedByUser = false;
     this.openSocket(this.resumeUrl ?? GATEWAY_URL, !!this.sessionId);
+  }
+
+  reconnectNow() {
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    this.reconnectAttempts = 0;
+    if (this.ws && this.ws.readyState !== WebSocket.CLOSED) {
+      if (this.ws.readyState === WebSocket.OPEN) {
+        this.ws.close(4000, "force reconnect");
+      }
+      return;
+    }
+    this.connect();
   }
 
   disconnect() {
     this.closedByUser = true;
     this.clearHeartbeat();
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
     this.ws?.close(1000, "client disconnect");
     this.ws = null;
     this.setState("disconnected");
@@ -242,7 +269,9 @@ export class DiscordGateway {
     this.setState("reconnecting");
     this.reconnectAttempts++;
     const delay = Math.min(30000, 1000 * 2 ** this.reconnectAttempts) + Math.random() * 1000;
-    setTimeout(() => {
+    if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null;
       if (!this.closedByUser) this.connect();
     }, delay);
   }

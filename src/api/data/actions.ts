@@ -230,15 +230,17 @@ export async function sendMessage(
   files?: (File | { name?: string; type?: string; data?: ArrayBuffer })[],
   stickerId?: string,
   replyTo?: string,
+  nonce?: string,
 ) {
   await ensureHuman();
   const t = await token();
   const ref = replyTo
     ? { message_reference: { message_id: replyTo, fail_if_not_exists: false } }
     : {};
+  const nonceField = nonce ? { nonce, enforce_nonce: true } : {};
 
   if (!files || files.length === 0) {
-    const payload: Record<string, unknown> = { tts, ...ref };
+    const payload: Record<string, unknown> = { tts, ...ref, ...nonceField };
     if (text) payload.content = text;
     if (stickerId) payload.sticker_ids = [stickerId];
 
@@ -254,7 +256,7 @@ export async function sendMessage(
   }
 
   const form = new FormData();
-  const payload: Record<string, unknown> = { content: text ?? "", tts, ...ref };
+  const payload: Record<string, unknown> = { content: text ?? "", tts, ...ref, ...nonceField };
   if (stickerId) payload.sticker_ids = [stickerId];
   form.append("payload_json", JSON.stringify(payload));
 
@@ -274,6 +276,20 @@ export async function sendMessage(
     method: "POST",
     headers: { Authorization: `Bot ${t}` },
     body: form,
+  });
+  return res.json();
+}
+
+export async function editMessage(
+  channelId: string,
+  messageId: string,
+  content: string,
+) {
+  await ensureHuman();
+  const res = await authed(`/channels/${channelId}/messages/${messageId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content }),
   });
   return res.json();
 }

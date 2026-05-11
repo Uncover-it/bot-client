@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import { SmilePlus } from "lucide-react";
+import Spinner from "@/components/ui/spinner";
 import {
   Popover,
   PopoverContent,
@@ -35,6 +36,7 @@ export function MessageReactions({ guildId, channelId, messageId, reactions }: P
   const [pickerOpen, setPickerOpen] = useState(false);
   const addStore = useRealtimeStore((s) => s.addReaction);
   const removeStore = useRealtimeStore((s) => s.removeReaction);
+  const markPending = useRealtimeStore((s) => s.markReactionPending);
   const perms = useChannelPermissions(guildId, channelId);
   const canReact = can(perms, "Add Reactions");
   const list = reactions ?? [];
@@ -43,12 +45,15 @@ export function MessageReactions({ guildId, channelId, messageId, reactions }: P
     const key = reactionApiKey(r.emoji);
     if (!key) return;
     if (r.me) {
+      markPending(channelId, messageId, r.emoji, true);
       removeStore(channelId, messageId, r.emoji, true);
       try {
         await removeReaction(channelId, messageId, key);
       } catch (e) {
         addStore(channelId, messageId, r.emoji, true);
         toast.error(e instanceof Error ? e.message : "Failed to remove reaction");
+      } finally {
+        markPending(channelId, messageId, r.emoji, false);
       }
     } else {
       if (!canReact) {
@@ -56,11 +61,14 @@ export function MessageReactions({ guildId, channelId, messageId, reactions }: P
         return;
       }
       addStore(channelId, messageId, r.emoji, true);
+      markPending(channelId, messageId, r.emoji, true);
       try {
         await addReaction(channelId, messageId, key);
       } catch (e) {
         removeStore(channelId, messageId, r.emoji, true);
         toast.error(e instanceof Error ? e.message : "Failed to add reaction");
+      } finally {
+        markPending(channelId, messageId, r.emoji, false);
       }
     }
   }
@@ -82,11 +90,14 @@ export function MessageReactions({ guildId, channelId, messageId, reactions }: P
       emoji = { id: null, name: token };
     }
     addStore(channelId, messageId, emoji, true);
+    markPending(channelId, messageId, emoji, true);
     try {
       await addReaction(channelId, messageId, key);
     } catch (e) {
       removeStore(channelId, messageId, emoji, true);
       toast.error(e instanceof Error ? e.message : "Failed to add reaction");
+    } finally {
+      markPending(channelId, messageId, emoji, false);
     }
   }
 
@@ -96,16 +107,19 @@ export function MessageReactions({ guildId, channelId, messageId, reactions }: P
     <div className="flex flex-wrap gap-1 mt-1">
       {list.map((r, i) => {
         const isCustom = !!r.emoji.id;
+        const isPending = !!r.__pending;
         return (
           <button
             key={`${r.emoji.id ?? r.emoji.name ?? i}`}
             type="button"
             onClick={() => toggle(r)}
+            disabled={isPending}
             className={cn(
               "inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-xs transition-colors",
               r.me
                 ? "border-primary/60 bg-primary/15 text-foreground"
                 : "border-border bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground",
+              isPending && "opacity-70",
             )}
             title={r.emoji.name ?? ""}
           >
@@ -121,6 +135,7 @@ export function MessageReactions({ guildId, channelId, messageId, reactions }: P
               <span className="leading-none text-base">{r.emoji.name}</span>
             )}
             <span className="font-mono text-[10px]">{r.count}</span>
+            {isPending && <Spinner size={10} className="ml-0.5" />}
           </button>
         );
       })}

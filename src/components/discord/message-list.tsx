@@ -22,6 +22,7 @@ import {
   addReaction,
   ban,
   deleteMessage,
+  editMessage,
   getMessages,
   kick,
   pinMessage,
@@ -33,6 +34,7 @@ import {
   Copy,
   ExternalLink,
   IdCard,
+  Pencil,
   Trash2,
   Pin,
   PinOff,
@@ -91,6 +93,9 @@ export function MessageList({
   const setMessages = useRealtimeStore((s) => s.setMessages);
   const prepend = useRealtimeStore((s) => s.prependMessages);
   const botUserId = useRealtimeStore((s) => s.user?.id);
+  const addReactionStore = useRealtimeStore((s) => s.addReaction);
+  const removeReactionStore = useRealtimeStore((s) => s.removeReaction);
+  const markReactionPending = useRealtimeStore((s) => s.markReactionPending);
   const perms = useChannelPermissions(serverId, channelId);
   const canManageMessages = can(perms, "Manage Messages");
   const guild = useMemo(
@@ -103,7 +108,38 @@ export function MessageList({
   const [exhausted, setExhausted] = useState(false);
   const [atBottom, setAtBottom] = useState(true);
   const [reactingId, setReactingId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const atBottomRef = useRef(true);
+  useEffect(() => {
+    atBottomRef.current = atBottom;
+  }, [atBottom]);
+  const updateMessageStore = useRealtimeStore((s) => s.updateMessage);
+
+  const commitEdit = useCallback(
+    async (msg: Message, nextContent: string) => {
+      const prev = msg.content;
+      const trimmed = nextContent.trim();
+      if (trimmed === prev) {
+        setEditingId(null);
+        return;
+      }
+      updateMessageStore({
+        ...msg,
+        content: trimmed,
+        edited_timestamp: new Date().toISOString(),
+      });
+      setEditingId(null);
+      try {
+        const res = await editMessage(channelId, msg.id, trimmed);
+        if (res?.id) updateMessageStore(res);
+      } catch (e) {
+        updateMessageStore({ ...msg, content: prev });
+        toast.error(e instanceof Error ? e.message : "Edit failed");
+      }
+    },
+    [channelId, updateMessageStore],
+  );
 
   const jumpTo = useCallback((id: string) => {
     const el = scrollRef.current?.querySelector(
@@ -150,6 +186,53 @@ export function MessageList({
     if (!el || hydrating) return;
     if (atBottom) el.scrollTop = el.scrollHeight;
   }, [messages, hydrating, atBottom]);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || hydrating) return;
+    const snap = () => {
+      if (atBottomRef.current) el.scrollTop = el.scrollHeight;
+    };
+    const ro = new ResizeObserver(snap);
+    ro.observe(el);
+    const inner = el.firstElementChild;
+    if (inner) ro.observe(inner);
+    const imgs = el.querySelectorAll("img");
+    const onLoad = () => snap();
+    imgs.forEach((img) => img.addEventListener("load", onLoad));
+    return () => {
+      ro.disconnect();
+      imgs.forEach((img) => img.removeEventListener("load", onLoad));
+    };
+  }, [hydrating, messages]);
+
+  useEffect(() => {
+    const refresh = async () => {
+      if (document.hidden) return;
+      try {
+        const fresh: Message[] = await getMessages(channelId);
+        if (!Array.isArray(fresh) || !fresh.length) return;
+        const state = useRealtimeStore.getState();
+        const cur = state.messages.get(channelId) ?? [];
+        const seen = new Set(cur.map((m) => m.id));
+        const additions = fresh.filter((m) => !seen.has(m.id));
+        // fresh comes newest-first from API; iterate from oldest of the gap
+        // so each addMessage places newest at front correctly.
+        for (let i = additions.length - 1; i >= 0; i--) {
+          state.addMessage(additions[i]);
+        }
+      } catch {}
+    };
+    const onVis = () => {
+      if (!document.hidden) refresh();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    window.addEventListener("focus", onVis);
+    return () => {
+      document.removeEventListener("visibilitychange", onVis);
+      window.removeEventListener("focus", onVis);
+    };
+  }, [channelId]);
 
   function onScroll() {
     const el = scrollRef.current;
@@ -205,7 +288,10 @@ export function MessageList({
   );
 
   const renderHoverToolbar = useCallback(
-    (msg: Message) => (
+    (msg: Message) => {
+      const selfId = useRealtimeStore.getState().user?.id;
+      const isMine = msg.author.id === selfId;
+      return (
       <>
         <Popover>
           <PopoverTrigger asChild>
@@ -223,12 +309,20 @@ export function MessageList({
               onSelect={async (token) => {
                 const m = token.match(/^<(a)?:([\w~]+):(\d+)>$/);
                 const key = m ? `${m[2]}:${m[3]}` : token;
+                const emoji = m
+                  ? { id: m[3], name: m[2], animated: !!m[1] }
+                  : { id: null, name: token };
+                addReactionStore(channelId, msg.id, emoji, true);
+                markReactionPending(channelId, msg.id, emoji, true);
                 try {
                   await addReaction(channelId, msg.id, key);
                 } catch (e) {
+                  removeReactionStore(channelId, msg.id, emoji, true);
                   toast.error(
                     e instanceof Error ? e.message : "Failed to add reaction",
                   );
+                } finally {
+                  markReactionPending(channelId, msg.id, emoji, false);
                 }
               }}
             />
@@ -248,6 +342,16 @@ export function MessageList({
         >
           <Reply className="size-4 md:size-3" />
         </button>
+        {isMine && !msg.__pending && (
+          <button
+            onClick={() => setEditingId(msg.id)}
+            className="size-8 md:size-6 grid place-items-center rounded hover:bg-muted text-muted-foreground hover:text-foreground"
+            title="Edit"
+            aria-label="Edit"
+          >
+            <Pencil className="size-4 md:size-3" />
+          </button>
+        )}
         <button
           onClick={() => {
             const p = async () => {
@@ -281,14 +385,16 @@ export function MessageList({
           </button>
         )}
       </>
-    ),
-    [onReply, channelId, canManageMessages, serverId],
+      );
+    },
+    [onReply, channelId, canManageMessages, serverId, addReactionStore, markReactionPending, removeReactionStore],
   );
 
   const renderMobileMenu = useCallback(
     (msg: Message) => {
       const selfId = useRealtimeStore.getState().user?.id;
       const canDelete = msg.author.id === selfId || canManageMessages;
+      const canEdit = msg.author.id === selfId && !msg.__pending;
       return (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -318,6 +424,11 @@ export function MessageList({
             >
               <Reply className="mr-2 size-4" /> Reply
             </DropdownMenuItem>
+            {canEdit && (
+              <DropdownMenuItem onSelect={() => setEditingId(msg.id)}>
+                <Pencil className="mr-2 size-4" /> Edit
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem
               onSelect={() => {
                 const p = async () => {
@@ -489,6 +600,12 @@ export function MessageList({
             >
               <Reply /> Reply
             </ContextMenuItem>
+            {msg.author.id === useRealtimeStore.getState().user?.id &&
+              !msg.__pending && (
+                <ContextMenuItem onSelect={() => setEditingId(msg.id)}>
+                  <Pencil /> Edit
+                </ContextMenuItem>
+              )}
             <ContextMenuItem
               onSelect={() => {
                 const p = async () => {
@@ -602,6 +719,9 @@ export function MessageList({
                   storeMember={memberById.get(m.author.id)}
                   mentionsMe={mentionsMe}
                   isPostStarter={isPostStarter}
+                  editing={editingId === m.id}
+                  onEditSave={(text) => commitEdit(m, text)}
+                  onEditCancel={() => setEditingId(null)}
                   onJumpReply={jumpTo}
                   hoverToolbar={renderHoverToolbar}
                   mobileMenu={renderMobileMenu}
@@ -654,12 +774,20 @@ export function MessageList({
                 if (!id) return;
                 const m = token.match(/^<(a)?:([\w~]+):(\d+)>$/);
                 const key = m ? `${m[2]}:${m[3]}` : token;
+                const emoji = m
+                  ? { id: m[3], name: m[2], animated: !!m[1] }
+                  : { id: null, name: token };
+                addReactionStore(channelId, id, emoji, true);
+                markReactionPending(channelId, id, emoji, true);
                 try {
                   await addReaction(channelId, id, key);
                 } catch (e) {
+                  removeReactionStore(channelId, id, emoji, true);
                   toast.error(
                     e instanceof Error ? e.message : "Failed to add reaction",
                   );
+                } finally {
+                  markReactionPending(channelId, id, emoji, false);
                 }
               }}
             />

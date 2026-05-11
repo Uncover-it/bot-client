@@ -12,6 +12,7 @@ import {
   Sticker,
   X,
 } from "lucide-react";
+import Spinner from "@/components/ui/spinner";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -106,7 +107,12 @@ export function MessageInput({
   const channels = useMemo(() => guild?.channels ?? [], [guild?.channels]);
   const channelMessages = useRealtimeStore((s) => s.messages.get(channelId));
   const upsertMember = useRealtimeStore((s) => s.upsertMember);
+  const me = useRealtimeStore((s) => s.user);
+  const addMessageStore = useRealtimeStore((s) => s.addMessage);
+  const replaceMessageStore = useRealtimeStore((s) => s.replaceMessage);
+  const markMessageFailedStore = useRealtimeStore((s) => s.markMessageFailed);
   const [remoteMembers, setRemoteMembers] = useState<GuildMember[]>([]);
+  const [sending, setSending] = useState(false);
 
   const recentAuthorIds = useMemo(() => {
     if (!channelMessages?.length) return [] as string[];
@@ -343,14 +349,64 @@ export function MessageInput({
       toast.error("Bot lacks Send Messages permission");
       return;
     }
-    if (!text.trim() && files.length === 0) return;
-    const sendPromise = async () => {
+    if (sending) return;
+    const trimmed = text.trim();
+    if (!trimmed && files.length === 0) return;
+
+    const nonce = nanoid();
+    const tempId = `pending:${nonce}`;
+    const snapText = text;
+    const snapFiles = files;
+    const snapReply = reply ?? null;
+
+    const optimistic: import("@/lib/discord/types").Message = {
+      id: tempId,
+      nonce,
+      channel_id: channelId,
+      author: me ?? {
+        id: "0",
+        username: "you",
+        discriminator: "0",
+      },
+      content: snapText,
+      timestamp: new Date().toISOString(),
+      edited_timestamp: null,
+      tts,
+      mention_everyone: false,
+      mentions: [],
+      mention_roles: [],
+      attachments: snapFiles.map((f) => ({
+        id: f.id,
+        filename: f.file.name,
+        size: f.file.size,
+        url: f.url,
+        proxy_url: f.url,
+        content_type: f.file.type,
+      })),
+      embeds: [],
+      pinned: false,
+      type: 0,
+      message_reference: snapReply?.id
+        ? { message_id: snapReply.id, channel_id: channelId }
+        : undefined,
+      __pending: true,
+    };
+
+    addMessageStore(optimistic);
+    setText("");
+    setFiles([]);
+    onClearReply?.();
+    setSending(true);
+    // keep keyboard alive on mobile
+    requestAnimationFrame(() => taRef.current?.focus({ preventScroll: true }));
+
+    try {
       let serialized:
         | { name: string; type: string; data: ArrayBuffer }[]
         | undefined;
-      if (files.length) {
+      if (snapFiles.length) {
         serialized = await Promise.all(
-          files.map(async (f) => ({
+          snapFiles.map(async (f) => ({
             name: f.file.name,
             type: f.file.type,
             data: await f.file.arrayBuffer(),
@@ -360,21 +416,20 @@ export function MessageInput({
       const res = await sendMessage(
         channelId,
         tts,
-        text || undefined,
+        snapText || undefined,
         serialized,
         undefined,
-        reply?.id,
+        snapReply?.id,
+        nonce,
       );
       if (!res?.id) throw new Error(res?.message ?? "Send failed");
-      setText("");
-      setFiles([]);
-      onClearReply?.();
-    };
-    toast.promise(sendPromise(), {
-      loading: "Sending",
-      success: "Sent",
-      error: (e) => `Error: ${e.message}`,
-    });
+      replaceMessageStore(channelId, tempId, res);
+    } catch (e) {
+      markMessageFailedStore(channelId, tempId);
+      toast.error(e instanceof Error ? e.message : "Send failed");
+    } finally {
+      setSending(false);
+    }
   }
 
   async function sendSticker(stickerId: string) {
@@ -568,7 +623,7 @@ export function MessageInput({
         placeholder={placeholder}
         className="border-none shadow-none ring-0 focus-visible:ring-0 resize-none min-h-12 max-h-48 field-sizing-content"
       />
-      <div className="flex items-center gap-1 px-2 pb-2 flex-wrap">
+      <div className="flex items-center gap-1 px-2 pt-1 pb-2 flex-wrap">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button size="icon" variant="ghost" className="text-muted-foreground" disabled={!canSend}>
@@ -649,10 +704,15 @@ export function MessageInput({
         <Button
           size="icon"
           onClick={send}
-          disabled={!canSend || (!text.trim() && files.length === 0)}
+          disabled={!canSend || sending || (!text.trim() && files.length === 0)}
+          aria-busy={sending}
           className={cn(buttonVariants({ size: "icon" }), "shrink-0")}
         >
-          <SendHorizontal className="size-4" />
+          {sending ? (
+            <Spinner size={16} className="text-primary-foreground" />
+          ) : (
+            <SendHorizontal className="size-4" />
+          )}
         </Button>
       </div>
     </div>

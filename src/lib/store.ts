@@ -41,6 +41,8 @@ interface State {
   prependMessages: (channelId: string, messages: Message[]) => void;
   addMessage: (m: Message) => void;
   updateMessage: (m: Message) => void;
+  replaceMessage: (channelId: string, oldId: string, next: Message) => void;
+  markMessageFailed: (channelId: string, id: string) => void;
   removeMessage: (channelId: string, messageId: string) => void;
   setMembers: (guildId: string, members: GuildMember[]) => void;
   upsertMember: (guildId: string, member: GuildMember) => void;
@@ -63,6 +65,12 @@ interface State {
     emoji: { id?: string | null; name?: string | null },
   ) => void;
   removeAllReactions: (channelId: string, messageId: string) => void;
+  markReactionPending: (
+    channelId: string,
+    messageId: string,
+    emoji: { id?: string | null; name?: string | null },
+    on: boolean,
+  ) => void;
   upsertPresence: (guildId: string, presence: Presence) => void;
   setPresences: (guildId: string, presences: Presence[]) => void;
   setTyping: (channelId: string, userId: string) => void;
@@ -153,6 +161,18 @@ export const useRealtimeStore = create<State>((set) => ({
       const next = new Map(state.messages);
       const cur = next.get(m.channel_id) ?? [];
       if (cur.find((x) => x.id === m.id)) return {};
+      if (m.nonce != null) {
+        const nonceStr = String(m.nonce);
+        const idx = cur.findIndex(
+          (x) => x.__pending && x.nonce != null && String(x.nonce) === nonceStr,
+        );
+        if (idx >= 0) {
+          const merged = cur.slice();
+          merged[idx] = { ...m, __pending: false, __failed: false };
+          next.set(m.channel_id, merged);
+          return { messages: next };
+        }
+      }
       next.set(m.channel_id, [m, ...cur]);
       return { messages: next };
     }),
@@ -164,6 +184,36 @@ export const useRealtimeStore = create<State>((set) => ({
       next.set(
         m.channel_id,
         cur.map((x) => (x.id === m.id ? { ...x, ...m } : x)),
+      );
+      return { messages: next };
+    }),
+  replaceMessage: (channelId, oldId, nextMsg) =>
+    set((state) => {
+      const next = new Map(state.messages);
+      const cur = next.get(channelId);
+      if (!cur) return {};
+      const seenReal = cur.some((x) => x.id === nextMsg.id && x.id !== oldId);
+      const filtered = seenReal ? cur.filter((x) => x.id !== oldId) : cur;
+      const replaced = seenReal
+        ? filtered
+        : filtered.map((x) =>
+            x.id === oldId
+              ? { ...nextMsg, __pending: false, __failed: false }
+              : x,
+          );
+      next.set(channelId, replaced);
+      return { messages: next };
+    }),
+  markMessageFailed: (channelId, id) =>
+    set((state) => {
+      const next = new Map(state.messages);
+      const cur = next.get(channelId);
+      if (!cur) return {};
+      next.set(
+        channelId,
+        cur.map((x) =>
+          x.id === id ? { ...x, __pending: false, __failed: true } : x,
+        ),
       );
       return { messages: next };
     }),
@@ -313,6 +363,24 @@ export const useRealtimeStore = create<State>((set) => ({
       const updated = cur.map((msg) =>
         msg.id === messageId ? { ...msg, reactions: [] } : msg,
       );
+      next.set(channelId, updated);
+      return { messages: next };
+    }),
+  markReactionPending: (channelId, messageId, emoji, on) =>
+    set((state) => {
+      const next = new Map(state.messages);
+      const cur = next.get(channelId);
+      if (!cur) return {};
+      const updated = cur.map((msg) => {
+        if (msg.id !== messageId) return msg;
+        const reactions = (msg.reactions ?? []).map((r) => {
+          const match = emoji.id
+            ? r.emoji.id === emoji.id
+            : !r.emoji.id && r.emoji.name === emoji.name;
+          return match ? { ...r, __pending: on } : r;
+        });
+        return { ...msg, reactions };
+      });
       next.set(channelId, updated);
       return { messages: next };
     }),
