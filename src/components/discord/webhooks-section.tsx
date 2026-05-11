@@ -15,10 +15,11 @@ import {
   deleteWebhook,
   getChannelWebhooks,
 } from "@/api/data/actions";
-import { Copy, Eye, EyeOff, LoaderCircle, Plus, Trash2, Webhook } from "lucide-react";
+import { Copy, Eye, EyeOff, Plus, Trash2, Webhook } from "lucide-react";
 import { toast } from "sonner";
 import Image from "next/image";
 import { avatarUrl } from "@/lib/discord/cdn";
+import Spinner from "../ui/spinner";
 
 interface WebhookData {
   id: string;
@@ -158,7 +159,7 @@ export function WebhooksSection({ channelId, canManage }: Props) {
             disabled={!newName.trim() || creating}
           >
             {creating ? (
-              <LoaderCircle className="size-4 animate-spin" />
+              <Spinner className="size-4" />
             ) : (
               <Plus className="size-4" />
             )}
@@ -180,9 +181,9 @@ export function WebhooksSection({ channelId, canManage }: Props) {
       )}
 
       {busy && hooks === null ? (
-        <p className="text-sm text-muted-foreground flex items-center gap-2">
-          <LoaderCircle className="size-3 animate-spin" /> Loading webhooks…
-        </p>
+        <div className="text-sm text-muted-foreground flex items-center gap-1">
+          <Spinner className="size-3" /> Loading webhooks…
+        </div>
       ) : hooks && hooks.length === 0 ? (
         <p className="text-xs text-muted-foreground italic">No webhooks yet.</p>
       ) : (
@@ -230,7 +231,9 @@ export function WebhooksSection({ channelId, canManage }: Props) {
                     <div className="mt-1.5 flex items-start gap-1 min-w-0">
                       {url ? (
                         <span className="block text-[10px] font-mono bg-muted/50 rounded px-1.5 py-1 break-all flex-1 min-w-0 leading-snug">
-                          {showToken ? url : url.replace(/\/[^/]+$/, "/••••••••")}
+                          {showToken
+                            ? url
+                            : url.replace(/\/[^/]+$/, "/••••••••")}
                         </span>
                       ) : (
                         <span className="block text-[10px] text-muted-foreground italic flex-1 min-w-0">

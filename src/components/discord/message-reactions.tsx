@@ -31,12 +31,6 @@ function reactionApiKey(emoji: { id?: string | null; name?: string | null }): st
   return null;
 }
 
-export function tokenToReactionKey(token: string): string | null {
-  const m = token.match(/^<a?:([\w~]+):(\d+)>$/);
-  if (m) return `${m[1]}:${m[2]}`;
-  return token;
-}
-
 export function MessageReactions({ guildId, channelId, messageId, reactions }: Props) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const addStore = useRealtimeStore((s) => s.addReaction);

@@ -1,7 +1,11 @@
 import type { NextConfig } from "next";
+import { withBotId } from "botid/next/config";
 
 const nextConfig: NextConfig = {
   cacheComponents: true,
+  env: {
+    BUILD_DATE: new Date().toISOString(),
+  },
   images: {
     remotePatterns: [
       { hostname: "*.discordapp.com" },
@@ -20,4 +24,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default withBotId(nextConfig);

@@ -78,7 +78,7 @@ import type { Channel, Guild } from "@/lib/discord/types";
 export function AppSidebar() {
   const guildsMap = useRealtimeStore((s) => s.guilds);
   const user = useRealtimeStore((s) => s.user);
-  const setGuilds = useRealtimeStore((s) => s.setGuilds);
+  const upsertGuild = useRealtimeStore((s) => s.upsertGuild);
   const guilds = useMemo(() => Array.from(guildsMap.values()), [guildsMap]);
 
   useEffect(() => {
@@ -86,13 +86,14 @@ export function AppSidebar() {
     (async () => {
       try {
         const data = await getServers();
-        if (alive && Array.isArray(data)) setGuilds(data);
+        if (!alive || !Array.isArray(data)) return;
+        data.forEach((g) => upsertGuild(g));
       } catch {}
     })();
     return () => {
       alive = false;
     };
-  }, [setGuilds]);
+  }, [upsertGuild]);
 
   return (
     <Sidebar collapsible="offcanvas">

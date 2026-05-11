@@ -43,6 +43,7 @@ export function MessageAttachment({ a }: { a: Attachment }) {
               width={a.width ?? 400}
               height={a.height ?? 300}
               unoptimized
+              loading="eager"
               className="rounded-md max-h-[400px] max-w-full w-auto h-auto object-contain"
             />
           </Link>

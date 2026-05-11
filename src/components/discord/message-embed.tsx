@@ -61,6 +61,7 @@ export function MessageEmbed({ embed }: { embed: Embed }) {
             width={embed.image.width ?? 400}
             height={embed.image.height ?? 300}
             unoptimized
+            loading="eager"
             className="rounded-md max-h-[400px] max-w-full w-auto h-auto object-contain"
           />
         )}
@@ -71,6 +72,7 @@ export function MessageEmbed({ embed }: { embed: Embed }) {
             width={embed.thumbnail.width ?? 80}
             height={embed.thumbnail.height ?? 80}
             unoptimized
+            loading="eager"
             className="rounded-md max-w-full h-auto"
           />
         )}

@@ -10,7 +10,6 @@ import { devPortalUrl, getMissingPrivilegedIntents } from "@/components/discord/
 export function StatusBar() {
   const state = useRealtimeStore((s) => s.gatewayState);
   const ping = useRealtimeStore((s) => s.pingMs);
-  const rest = useRealtimeStore((s) => s.restPingMs);
   const intents = useRealtimeStore((s) => s.activeIntents);
   const appId = useRealtimeStore((s) => s.user?.id);
 
@@ -78,10 +77,6 @@ export function StatusBar() {
           <div className="flex items-center justify-between gap-3">
             <span className="text-muted-foreground">Gateway</span>
             <span className="font-mono">{ping || "—"}ms</span>
-          </div>
-          <div className="flex items-center justify-between gap-3">
-            <span className="text-muted-foreground">REST</span>
-            <span className="font-mono">{rest || "—"}ms</span>
           </div>
           <div className="border-t border-border/50 pt-2 flex items-center gap-1.5">
             <Activity className="size-3.5" />

@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { LoaderCircle, ChevronDown } from "lucide-react";
+import Spinner from "../ui/spinner";
+import { ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { useChannelPermissions } from "@/hooks/use-permissions";
 import { can } from "@/lib/discord/permissions";
@@ -76,7 +77,12 @@ interface Props {
   onReply: (target: ReplyTarget) => void;
 }
 
-export function MessageList({ channelId, serverId, postStarterId, onReply }: Props) {
+export function MessageList({
+  channelId,
+  serverId,
+  postStarterId,
+  onReply,
+}: Props) {
   const messages = useRealtimeStore((s) => s.messages.get(channelId));
   const roles = useRealtimeStore((s) => s.guilds.get(serverId)?.roles);
   const channels = useRealtimeStore((s) => s.guilds.get(serverId)?.channels);
@@ -87,7 +93,10 @@ export function MessageList({ channelId, serverId, postStarterId, onReply }: Pro
   const botUserId = useRealtimeStore((s) => s.user?.id);
   const perms = useChannelPermissions(serverId, channelId);
   const canManageMessages = can(perms, "Manage Messages");
-  const guild = useMemo(() => ({ id: serverId, name: "", features: [], roles, channels }), [serverId, roles, channels]);
+  const guild = useMemo(
+    () => ({ id: serverId, name: "", features: [], roles, channels }),
+    [serverId, roles, channels],
+  );
 
   const [hydrating, setHydrating] = useState(!messages);
   const [loadingOlder, setLoadingOlder] = useState(false);
@@ -97,20 +106,29 @@ export function MessageList({ channelId, serverId, postStarterId, onReply }: Pro
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const jumpTo = useCallback((id: string) => {
-    const el = scrollRef.current?.querySelector(`[data-message-id="${id}"]`) as HTMLElement | null;
+    const el = scrollRef.current?.querySelector(
+      `[data-message-id="${id}"]`,
+    ) as HTMLElement | null;
     if (!el) {
-      toast.message("Message not loaded", { description: "Scroll up to find it." });
+      toast.message("Message not loaded", {
+        description: "Scroll up to find it.",
+      });
       return;
     }
     el.scrollIntoView({ behavior: "smooth", block: "center" });
     el.classList.add("ring-2", "ring-primary", "bg-primary/10");
-    setTimeout(() => el.classList.remove("ring-2", "ring-primary", "bg-primary/10"), 1500);
+    setTimeout(
+      () => el.classList.remove("ring-2", "ring-primary", "bg-primary/10"),
+      1500,
+    );
   }, []);
 
   useEffect(() => {
     let alive = true;
-    setHydrating(!useRealtimeStore.getState().messages.get(channelId));
+    const cached = useRealtimeStore.getState().messages.get(channelId);
+    setHydrating(!cached);
     setExhausted(false);
+    if (cached && cached.length > 0) return;
     (async () => {
       try {
         const fresh: Message[] = await getMessages(channelId);
@@ -170,7 +188,10 @@ export function MessageList({ channelId, serverId, postStarterId, onReply }: Pro
   const timeoutMember = useCallback(
     (userId: string, minutes: number | null) => {
       const p = async () => {
-        const iso = minutes == null ? null : new Date(Date.now() + minutes * 60000).toISOString();
+        const iso =
+          minutes == null
+            ? null
+            : new Date(Date.now() + minutes * 60000).toISOString();
         const res = await serverTimeout(serverId, userId, iso);
         if (res.message) throw new Error(res.message);
       };
@@ -205,7 +226,9 @@ export function MessageList({ channelId, serverId, postStarterId, onReply }: Pro
                 try {
                   await addReaction(channelId, msg.id, key);
                 } catch (e) {
-                  toast.error(e instanceof Error ? e.message : "Failed to add reaction");
+                  toast.error(
+                    e instanceof Error ? e.message : "Failed to add reaction",
+                  );
                 }
               }}
             />
@@ -237,9 +260,14 @@ export function MessageList({ channelId, serverId, postStarterId, onReply }: Pro
           title={msg.pinned ? "Unpin" : "Pin"}
           aria-label={msg.pinned ? "Unpin" : "Pin"}
         >
-          {msg.pinned ? <PinOff className="size-4 md:size-3" /> : <Pin className="size-4 md:size-3" />}
+          {msg.pinned ? (
+            <PinOff className="size-4 md:size-3" />
+          ) : (
+            <Pin className="size-4 md:size-3" />
+          )}
         </button>
-        {(msg.author.id === useRealtimeStore.getState().user?.id || canManageMessages) && (
+        {(msg.author.id === useRealtimeStore.getState().user?.id ||
+          canManageMessages) && (
           <button
             onClick={() => {
               const p = async () => deleteMessage(channelId, msg.id);
@@ -272,7 +300,10 @@ export function MessageList({ channelId, serverId, postStarterId, onReply }: Pro
               <MoreHorizontal className="size-4" />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="bg-sidebar font-mono tracking-tighter">
+          <DropdownMenuContent
+            align="end"
+            className="bg-sidebar font-mono tracking-tighter"
+          >
             <DropdownMenuItem onSelect={() => setReactingId(msg.id)}>
               <SmilePlus className="mr-2 size-4" /> Add reaction
             </DropdownMenuItem>
@@ -327,7 +358,10 @@ export function MessageList({ channelId, serverId, postStarterId, onReply }: Pro
                 variant="destructive"
                 onSelect={() => {
                   const p = async () => deleteMessage(channelId, msg.id);
-                  toast.promise(p(), { loading: "Deleting", success: "Deleted" });
+                  toast.promise(p(), {
+                    loading: "Deleting",
+                    success: "Deleted",
+                  });
                 }}
               >
                 <Trash2 className="mr-2 size-4" /> Delete
@@ -384,7 +418,11 @@ export function MessageList({ channelId, serverId, postStarterId, onReply }: Pro
                         key={min}
                         onSelect={() => timeoutMember(msg.author.id, min)}
                       >
-                        {min < 60 ? `${min} min` : min < 1440 ? `${min / 60} hr` : `${min / 1440} day`}
+                        {min < 60
+                          ? `${min} min`
+                          : min < 1440
+                            ? `${min / 60} hr`
+                            : `${min / 1440} day`}
                       </ContextMenuItem>
                     ))}
                     <ContextMenuSeparator />
@@ -437,9 +475,7 @@ export function MessageList({ channelId, serverId, postStarterId, onReply }: Pro
         <ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
         <ContextMenuContent className="bg-sidebar font-mono tracking-tighter">
           <ContextMenuGroup>
-            <ContextMenuItem
-              onSelect={() => setReactingId(msg.id)}
-            >
+            <ContextMenuItem onSelect={() => setReactingId(msg.id)}>
               <SmilePlus /> Add reaction
             </ContextMenuItem>
             <ContextMenuItem
@@ -499,7 +535,8 @@ export function MessageList({ channelId, serverId, postStarterId, onReply }: Pro
     const names: string[] = [];
     ids.forEach((id) => {
       const m = members?.find((mm) => mm.user?.id === id);
-      if (m) names.push(m.nick ?? m.user?.global_name ?? m.user?.username ?? id);
+      if (m)
+        names.push(m.nick ?? m.user?.global_name ?? m.user?.username ?? id);
       else names.push(id);
     });
     return names.slice(0, 3);
@@ -516,7 +553,7 @@ export function MessageList({ channelId, serverId, postStarterId, onReply }: Pro
   if (hydrating) {
     return (
       <div className="size-full flex items-center justify-center text-muted-foreground">
-        <LoaderCircle className="animate-spin mr-2" />
+        <Spinner className="mr-2" size={16} />
         Loading messages
       </div>
     );
@@ -534,8 +571,8 @@ export function MessageList({ channelId, serverId, postStarterId, onReply }: Pro
         className="flex-1 overflow-y-auto overflow-x-hidden min-w-0"
       >
         {loadingOlder && (
-          <div className="flex justify-center py-2 text-xs text-muted-foreground">
-            <LoaderCircle className="animate-spin size-3 mr-1" /> Loading older
+          <div className="flex justify-center my-2 text-xs text-muted-foreground">
+            <Spinner className="mr-1" size={14} /> Loading older
           </div>
         )}
         {exhausted && (
@@ -550,7 +587,9 @@ export function MessageList({ channelId, serverId, postStarterId, onReply }: Pro
             const directMention =
               !!botUserId && (m.mentions ?? []).some((u) => u.id === botUserId);
             const mentionsMe =
-              !!botUserId && m.author.id !== botUserId && (directMention || replyToBot);
+              !!botUserId &&
+              m.author.id !== botUserId &&
+              (directMention || replyToBot);
             const isPostStarter = !!postStarterId && m.id === postStarterId;
             return (
               <div key={m.id}>
@@ -618,7 +657,9 @@ export function MessageList({ channelId, serverId, postStarterId, onReply }: Pro
                 try {
                   await addReaction(channelId, id, key);
                 } catch (e) {
-                  toast.error(e instanceof Error ? e.message : "Failed to add reaction");
+                  toast.error(
+                    e instanceof Error ? e.message : "Failed to add reaction",
+                  );
                 }
               }}
             />
@@ -635,8 +676,8 @@ export function MessageList({ channelId, serverId, postStarterId, onReply }: Pro
           {typingNames.length === 1
             ? `${typingNames[0]} is typing…`
             : typingNames.length === 2
-            ? `${typingNames.join(" and ")} are typing…`
-            : "Several people are typing…"}
+              ? `${typingNames.join(" and ")} are typing…`
+              : "Several people are typing…"}
         </div>
       )}
     </div>

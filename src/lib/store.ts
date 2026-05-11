@@ -26,15 +26,12 @@ interface State {
   typing: TypingMap;
   gatewayState: GatewayState;
   pingMs: number;
-  restPingMs: number;
   activeIntents: number;
   setActiveIntents: (n: number) => void;
   setUser: (u: User | null) => void;
   setGatewayState: (s: GatewayState) => void;
   setPing: (ms: number) => void;
-  setRestPing: (ms: number) => void;
   upsertGuild: (g: Guild) => void;
-  setGuilds: (gs: Guild[]) => void;
   setChannels: (guildId: string, channels: Channel[]) => void;
   upsertChannel: (c: Channel) => void;
   removeChannel: (id: string, guildId?: string) => void;
@@ -81,24 +78,16 @@ export const useRealtimeStore = create<State>((set) => ({
   typing: new Map(),
   gatewayState: "idle",
   pingMs: 0,
-  restPingMs: 0,
   activeIntents: 0,
   setActiveIntents: (n) => set({ activeIntents: n }),
   setUser: (u) => set({ user: u }),
   setGatewayState: (s) => set({ gatewayState: s }),
   setPing: (ms) => set({ pingMs: ms }),
-  setRestPing: (ms) => set({ restPingMs: ms }),
   upsertGuild: (g) =>
     set((state) => {
       const next = new Map(state.guilds);
       const prev = next.get(g.id);
       next.set(g.id, { ...prev, ...g });
-      return { guilds: next };
-    }),
-  setGuilds: (gs) =>
-    set(() => {
-      const next = new Map<string, Guild>();
-      gs.forEach((g) => next.set(g.id, g));
       return { guilds: next };
     }),
   setChannels: (guildId, channels) =>

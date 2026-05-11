@@ -34,6 +34,7 @@ bun run start
 ```
 
 > Note: Port 3000 has to be free for this to work.
+> Note: Self-hosting only works with **Vercel**. You must remove the botId implementation for it to work elsewhere.
 
 Remember to regularly pull the repo for the latest updates
 

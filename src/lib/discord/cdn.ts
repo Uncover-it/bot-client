@@ -36,12 +36,6 @@ export function guildIconUrl(guildId: string, hash?: string | null, size = 128):
   return `${CDN_BASE}/icons/${guildId}/${hash}.${ext}?size=${size}`;
 }
 
-export function guildBannerUrl(guildId: string, hash?: string | null, size = 512): string | null {
-  if (!hash) return null;
-  const ext = hash.startsWith("a_") ? "gif" : "png";
-  return `${CDN_BASE}/banners/${guildId}/${hash}.${ext}?size=${size}`;
-}
-
 export function emojiUrl(id: string, animated = false): string {
   return `${CDN_BASE}/emojis/${id}.${animated ? "gif" : "png"}`;
 }
@@ -50,11 +44,6 @@ export function stickerUrl(id: string, formatType: number, size = 64): string {
   if (formatType === 4) return `https://media.discordapp.net/stickers/${id}.gif`;
   if (formatType === 1 || formatType === 2) return `${CDN_BASE}/stickers/${id}.png?size=${size}`;
   return `${CDN_BASE}/stickers/${id}.json`;
-}
-
-export function roleIconUrl(roleId: string, hash?: string | null): string | null {
-  if (!hash) return null;
-  return `${CDN_BASE}/role-icons/${roleId}/${hash}.png`;
 }
 
 export function activityAssetUrl(

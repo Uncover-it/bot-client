@@ -3,11 +3,9 @@
 import { useMemo } from "react";
 import { useRealtimeStore } from "@/lib/store";
 import {
-  can,
   computeChannelPermissions,
   effectiveGuildPermissions,
 } from "@/lib/discord/permissions";
-import type { PERMISSIONS } from "@/lib/discord/constants";
 
 export function useGuildPermissions(guildId: string | undefined): bigint {
   const guild = useRealtimeStore((s) => (guildId ? s.guilds.get(guildId) : undefined));
@@ -29,13 +27,4 @@ export function useChannelPermissions(
     const botMember = members?.find((m) => m.user?.id === user?.id);
     return computeChannelPermissions(base, ch, botMember?.roles ?? [], user?.id, guildId);
   }, [guild, channelId, members, user, guildId]);
-}
-
-export function useCan(
-  guildId: string | undefined,
-  perm: keyof typeof PERMISSIONS,
-  channelId?: string,
-): boolean {
-  const perms = useChannelPermissions(guildId, channelId);
-  return useMemo(() => can(perms, perm), [perms, perm]);
 }

@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { LoaderCircle, MessageSquareText, Hash, FileImage } from "lucide-react";
+import Spinner from "../ui/spinner";
+import { MessageSquareText, Hash, FileImage } from "lucide-react";
 import Link from "next/link";
 import { getActiveThreads } from "@/api/data/actions";
 import type { Channel } from "@/lib/discord/types";
@@ -42,7 +43,11 @@ export function ForumView({ guildId, channel }: Props) {
         setData({ channelId: channel.id, threads: filtered, error: null });
       } catch {
         if (alive)
-          setData({ channelId: channel.id, threads: [], error: "Failed to load threads" });
+          setData({
+            channelId: channel.id,
+            threads: [],
+            error: "Failed to load threads",
+          });
       }
     })();
     return () => {
@@ -96,7 +101,7 @@ export function ForumView({ guildId, channel }: Props) {
           </h2>
           {threads === null && !error && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground py-6">
-              <LoaderCircle className="size-4 animate-spin" /> Loading threads…
+              <Spinner className="size-4 " /> Loading threads…
             </div>
           )}
           {error && (
@@ -105,7 +110,9 @@ export function ForumView({ guildId, channel }: Props) {
             </p>
           )}
           {threads !== null && threads.length === 0 && !error && (
-            <p className="text-sm text-muted-foreground py-6">No active threads.</p>
+            <p className="text-sm text-muted-foreground py-6">
+              No active threads.
+            </p>
           )}
           {threads !== null && threads.length > 0 && (
             <ul className="grid grid-cols-1 md:grid-cols-2 gap-2">
@@ -117,7 +124,9 @@ export function ForumView({ guildId, channel }: Props) {
                   >
                     <div className="flex items-center gap-2 min-w-0">
                       <Hash className="size-3.5 text-muted-foreground shrink-0" />
-                      <span className="font-medium text-sm truncate">{t.name}</span>
+                      <span className="font-medium text-sm truncate">
+                        {t.name}
+                      </span>
                     </div>
                     <div className="flex items-center gap-3 mt-1 text-[11px] text-muted-foreground font-mono">
                       {typeof t.message_count === "number" && (

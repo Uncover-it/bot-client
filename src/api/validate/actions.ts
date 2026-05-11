@@ -1,9 +1,12 @@
 "use server";
 
 import { cookies } from "next/headers";
+import { checkBotId } from "botid/server";
 import { API_BASE } from "@/lib/discord/constants";
 
 export async function validateToken(token: string) {
+  const v = await checkBotId();
+  if (v.isBot) throw new Error("Bot detected");
   const res = await fetch(`${API_BASE}/users/@me`, {
     headers: { Authorization: `Bot ${token}` },
     cache: "no-store",

@@ -53,7 +53,6 @@ import {
   RotateCcw,
   Search,
   ScrollText,
-  LoaderCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import Image from "next/image";
@@ -63,6 +62,7 @@ import type { Ban as BanType, Channel, Role } from "@/lib/discord/types";
 import { useGuildPermissions } from "@/hooks/use-permissions";
 import { ChannelSettingsDialog } from "@/components/discord/channel-settings-dialog";
 import { RoleEditor } from "@/components/discord/role-editor";
+import Spinner from "../ui/spinner";
 
 interface Props {
   guildId: string;
@@ -112,12 +112,32 @@ export function ServerSettings({ guildId }: Props) {
         >
           ← Back
         </Link>
-        <SettingsTab id="overview" label="Overview" current={tab} onClick={setTab} />
-        <SettingsTab id="channels" label="Channels" current={tab} onClick={setTab} />
+        <SettingsTab
+          id="overview"
+          label="Overview"
+          current={tab}
+          onClick={setTab}
+        />
+        <SettingsTab
+          id="channels"
+          label="Channels"
+          current={tab}
+          onClick={setTab}
+        />
         <SettingsTab id="roles" label="Roles" current={tab} onClick={setTab} />
         <SettingsTab id="bans" label="Bans" current={tab} onClick={setTab} />
-        <SettingsTab id="audit" label="Audit log" current={tab} onClick={setTab} />
-        <SettingsTab id="perms" label="Bot permissions" current={tab} onClick={setTab} />
+        <SettingsTab
+          id="audit"
+          label="Audit log"
+          current={tab}
+          onClick={setTab}
+        />
+        <SettingsTab
+          id="perms"
+          label="Bot permissions"
+          current={tab}
+          onClick={setTab}
+        />
       </aside>
       <div className="flex-1 overflow-y-auto p-4 md:p-8 min-w-0">
         {tab === "overview" && <Overview guildId={guildId} />}
@@ -146,7 +166,9 @@ function SettingsTab({
     <button
       onClick={() => onClick(id)}
       className={`whitespace-nowrap text-left text-sm px-3 py-2 rounded-md transition-colors ${
-        current === id ? "bg-accent text-accent-foreground" : "hover:bg-muted text-muted-foreground"
+        current === id
+          ? "bg-accent text-accent-foreground"
+          : "hover:bg-muted text-muted-foreground"
       }`}
     >
       {label}
@@ -172,7 +194,11 @@ function Overview({ guildId }: { guildId: string }) {
       if (!res?.id) throw new Error(res?.message ?? "Update failed");
       upsertGuild(res);
     })();
-    toast.promise(p, { loading: "Saving", success: "Saved", error: (e) => `Error: ${e.message}` });
+    toast.promise(p, {
+      loading: "Saving",
+      success: "Saved",
+      error: (e) => `Error: ${e.message}`,
+    });
     p.finally(() => setBusy(false));
   }
 
@@ -194,7 +220,9 @@ function Overview({ guildId }: { guildId: string }) {
           </div>
         )}
         <div className="flex-1 text-sm space-y-1 pt-2">
-          <div className="font-mono text-xs text-muted-foreground">{guild.id}</div>
+          <div className="font-mono text-xs text-muted-foreground">
+            {guild.id}
+          </div>
           <div>
             <span className="text-muted-foreground">Members: </span>
             {guild.member_count ?? "—"}
@@ -212,14 +240,19 @@ function Overview({ guildId }: { guildId: string }) {
 
       {!canManage && (
         <p className="text-xs text-destructive bg-destructive/10 px-3 py-2 rounded-md flex items-center gap-2">
-          <ShieldCheck className="size-3" /> Bot lacks Manage Server permission. Read-only.
+          <ShieldCheck className="size-3" /> Bot lacks Manage Server permission.
+          Read-only.
         </p>
       )}
 
       <div className="space-y-3">
         <div className="space-y-1.5">
           <Label>Server name</Label>
-          <Input value={name} onChange={(e) => setName(e.target.value)} disabled={!canManage} />
+          <Input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            disabled={!canManage}
+          />
         </div>
         <div className="space-y-1.5">
           <Label>Description</Label>
@@ -241,12 +274,17 @@ function Overview({ guildId }: { guildId: string }) {
 }
 
 function channelIcon(type: number) {
-  if (type === CHANNEL_TYPE.GUILD_VOICE || type === CHANNEL_TYPE.GUILD_STAGE_VOICE)
+  if (
+    type === CHANNEL_TYPE.GUILD_VOICE ||
+    type === CHANNEL_TYPE.GUILD_STAGE_VOICE
+  )
     return <Mic className="size-4 text-muted-foreground" />;
   if (type === CHANNEL_TYPE.GUILD_ANNOUNCEMENT)
     return <Megaphone className="size-4 text-muted-foreground" />;
   if (type === CHANNEL_TYPE.GUILD_CATEGORY)
-    return <span className="text-xs uppercase font-bold tracking-[0.18em]">CAT</span>;
+    return (
+      <span className="text-xs uppercase font-bold tracking-[0.18em]">CAT</span>
+    );
   if (type === CHANNEL_TYPE.GUILD_FORUM)
     return <MessageSquareText className="size-4 text-muted-foreground" />;
   if (type === CHANNEL_TYPE.GUILD_MEDIA)
@@ -269,7 +307,10 @@ function ChannelsPane({ guildId }: { guildId: string }) {
   function handleCreate() {
     if (!canManage) return;
     const p = async () => {
-      const res: Channel = await createChannel(guildId, { name, type: Number(type) });
+      const res: Channel = await createChannel(guildId, {
+        name,
+        type: Number(type),
+      });
       if (!res.id) throw new Error("Create failed");
       upsertChannel(res);
       setOpen(false);
@@ -311,7 +352,9 @@ function ChannelsPane({ guildId }: { guildId: string }) {
     });
   }
 
-  const sorted = [...channels].sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+  const sorted = [...channels].sort(
+    (a, b) => (a.position ?? 0) - (b.position ?? 0),
+  );
 
   return (
     <div className="max-w-3xl space-y-4 min-w-0">
@@ -331,7 +374,10 @@ function ChannelsPane({ guildId }: { guildId: string }) {
               <div className="space-y-3">
                 <div className="space-y-1.5">
                   <Label>Name</Label>
-                  <Input value={name} onChange={(e) => setName(e.target.value)} />
+                  <Input
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <Label>Type</Label>
@@ -361,11 +407,16 @@ function ChannelsPane({ guildId }: { guildId: string }) {
         )}
       </div>
       {!canManage && (
-        <p className="text-xs text-muted-foreground">Read-only — bot lacks Manage Channels.</p>
+        <p className="text-xs text-muted-foreground">
+          Read-only — bot lacks Manage Channels.
+        </p>
       )}
       <div className="border rounded-md divide-y">
         {sorted.map((c) => (
-          <div key={c.id} className="flex items-center gap-2 p-2 group hover:bg-muted/30">
+          <div
+            key={c.id}
+            className="flex items-center gap-2 p-2 group hover:bg-muted/30"
+          >
             {channelIcon(c.type)}
             <Input
               defaultValue={c.name}
@@ -373,7 +424,9 @@ function ChannelsPane({ guildId }: { guildId: string }) {
               disabled={!canManage}
               className="border-none shadow-none bg-transparent h-8 focus-visible:ring-0 px-1"
             />
-            <span className="text-xs text-muted-foreground font-mono">{c.id}</span>
+            <span className="text-xs text-muted-foreground font-mono">
+              {c.id}
+            </span>
             {canManage && (
               <>
                 <Button
@@ -427,7 +480,11 @@ function RolesPane({ guildId }: { guildId: string }) {
       setRoles(guildId, [...(guild?.roles ?? []), res]);
       setEditing(res);
     };
-    toast.promise(p(), { loading: "Creating role", success: "Created", error: (e) => `Error: ${e.message}` });
+    toast.promise(p(), {
+      loading: "Creating role",
+      success: "Created",
+      error: (e) => `Error: ${e.message}`,
+    });
   }
 
   async function handleDelete(role: Role) {
@@ -436,9 +493,16 @@ function RolesPane({ guildId }: { guildId: string }) {
     const p = async () => {
       const res = await deleteRole(guildId, role.id);
       if (res?.message) throw new Error(res.message);
-      setRoles(guildId, (guild?.roles ?? []).filter((r) => r.id !== role.id));
+      setRoles(
+        guildId,
+        (guild?.roles ?? []).filter((r) => r.id !== role.id),
+      );
     };
-    toast.promise(p(), { loading: "Deleting", success: "Deleted", error: (e) => `Error: ${e.message}` });
+    toast.promise(p(), {
+      loading: "Deleting",
+      success: "Deleted",
+      error: (e) => `Error: ${e.message}`,
+    });
   }
 
   return (
@@ -452,7 +516,9 @@ function RolesPane({ guildId }: { guildId: string }) {
         )}
       </div>
       {!canManage && (
-        <p className="text-xs text-muted-foreground">Read-only — bot lacks Manage Roles.</p>
+        <p className="text-xs text-muted-foreground">
+          Read-only — bot lacks Manage Roles.
+        </p>
       )}
       <div className="border rounded-md divide-y min-w-0">
         {roles.map((r) => (
@@ -587,7 +653,9 @@ function BansPane({ guildId }: { guildId: string }) {
   return (
     <div className="max-w-3xl space-y-4 min-w-0">
       <div className="flex items-center justify-between gap-2">
-        <h2 className="text-xl font-semibold">Bans {bans ? `(${bans.length})` : ""}</h2>
+        <h2 className="text-xl font-semibold">
+          Bans {bans ? `(${bans.length})` : ""}
+        </h2>
       </div>
       {!canBan && (
         <p className="text-xs text-destructive bg-destructive/10 px-3 py-2 rounded-md flex items-center gap-2">
@@ -595,7 +663,9 @@ function BansPane({ guildId }: { guildId: string }) {
         </p>
       )}
       {error && (
-        <p className="text-xs text-destructive bg-destructive/10 px-3 py-2 rounded-md">{error}</p>
+        <p className="text-xs text-destructive bg-destructive/10 px-3 py-2 rounded-md">
+          {error}
+        </p>
       )}
       <div className="relative">
         <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
@@ -613,7 +683,10 @@ function BansPane({ guildId }: { guildId: string }) {
       ) : (
         <div className="border rounded-md divide-y">
           {filtered.map((b) => (
-            <div key={b.user.id} className="flex items-center gap-3 p-3 hover:bg-muted/30">
+            <div
+              key={b.user.id}
+              className="flex items-center gap-3 p-3 hover:bg-muted/30"
+            >
               <Image
                 src={avatarUrl(b.user.id, b.user.avatar)}
                 alt={b.user.username}
@@ -849,7 +922,8 @@ function AuditPane({ guildId }: { guildId: string }) {
 
       {!canView && (
         <p className="text-xs text-destructive bg-destructive/10 px-3 py-2 rounded-md flex items-center gap-2">
-          <ShieldCheck className="size-3" /> Bot lacks View Audit Log permission.
+          <ShieldCheck className="size-3" /> Bot lacks View Audit Log
+          permission.
         </p>
       )}
       {error && (
@@ -867,9 +941,13 @@ function AuditPane({ guildId }: { guildId: string }) {
           {entries.map((e) => {
             const u = e.user_id ? users.get(e.user_id) : null;
             const ts = snowflakeTimestamp(e.id);
-            const label = AUDIT_LABEL[e.action_type] ?? `Action #${e.action_type}`;
+            const label =
+              AUDIT_LABEL[e.action_type] ?? `Action #${e.action_type}`;
             return (
-              <li key={e.id} className="p-3 flex gap-3 hover:bg-muted/30 min-w-0">
+              <li
+                key={e.id}
+                className="p-3 flex gap-3 hover:bg-muted/30 min-w-0"
+              >
                 <div className="size-7 rounded-full bg-muted shrink-0 overflow-hidden grid place-items-center mt-0.5">
                   {u ? (
                     <Image
@@ -888,7 +966,9 @@ function AuditPane({ guildId }: { guildId: string }) {
                     <span className="font-medium truncate">
                       {u ? (u.global_name ?? u.username) : "System"}
                     </span>
-                    <span className="text-muted-foreground">{label.toLowerCase()}</span>
+                    <span className="text-muted-foreground">
+                      {label.toLowerCase()}
+                    </span>
                     {e.target_id && (
                       <span className="text-[10px] font-mono text-muted-foreground/70">
                         target {e.target_id}
@@ -903,11 +983,16 @@ function AuditPane({ guildId }: { guildId: string }) {
                   {e.changes && e.changes.length > 0 && (
                     <ul className="mt-1 space-y-0.5">
                       {e.changes.slice(0, 6).map((c, i) => {
-                        const isAddRemove = c.key === "$add" || c.key === "$remove";
+                        const isAddRemove =
+                          c.key === "$add" || c.key === "$remove";
                         const oldVal =
-                          c.old_value !== undefined ? formatChangeValue(c.old_value) : null;
+                          c.old_value !== undefined
+                            ? formatChangeValue(c.old_value)
+                            : null;
                         const newVal =
-                          c.new_value !== undefined ? formatChangeValue(c.new_value) : null;
+                          c.new_value !== undefined
+                            ? formatChangeValue(c.new_value)
+                            : null;
                         return (
                           <li
                             key={i}
@@ -958,14 +1043,14 @@ function AuditPane({ guildId }: { guildId: string }) {
             disabled={busy}
             onClick={() => load(oldestId)}
           >
-            {busy ? <LoaderCircle className="size-3 mr-1 animate-spin" /> : null}
+            {busy ? <Spinner className="size-3 mr-1" /> : null}
             Load older
           </Button>
         </div>
       )}
       {canView && busy && entries.length === 0 && (
-        <p className="text-sm text-muted-foreground flex items-center gap-2">
-          <LoaderCircle className="size-3 animate-spin" /> Loading…
+        <p className="text-sm text-muted-foreground flex items-center gap-1">
+          <Spinner className="size-3" /> Loading…
         </p>
       )}
     </div>
@@ -987,14 +1072,19 @@ function PermsPane({ guildId }: { guildId: string }) {
       {allowed.length ? (
         <div className="grid sm:grid-cols-2 gap-2">
           {allowed.map((p) => (
-            <div key={p} className="text-sm px-3 py-1.5 rounded-md bg-muted/50 flex items-center gap-2">
+            <div
+              key={p}
+              className="text-sm px-3 py-1.5 rounded-md bg-muted/50 flex items-center gap-2"
+            >
               <span className="size-1.5 rounded-full bg-green-500" />
               {p}
             </div>
           ))}
         </div>
       ) : (
-        <p className="text-sm text-muted-foreground">No permissions detected.</p>
+        <p className="text-sm text-muted-foreground">
+          No permissions detected.
+        </p>
       )}
     </div>
   );

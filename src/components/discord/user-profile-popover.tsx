@@ -1,6 +1,11 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
+import {
+  useEffect,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from "react";
 import {
   Popover,
   PopoverContent,
@@ -133,7 +138,10 @@ export function UserProfilePopover({ guildId, userId, trigger }: Props) {
   const perms = useGuildPermissions(guildId);
   const [open, setOpen] = useState(false);
   const [rolePickerOpen, setRolePickerOpen] = useState(false);
-  const liveHasRoles = !!liveMember && Array.isArray(liveMember.roles) && liveMember.roles.length > 0;
+  const liveHasRoles =
+    !!liveMember &&
+    Array.isArray(liveMember.roles) &&
+    liveMember.roles.length > 0;
   const cachedSnapshot = memberSnapshotCache.get(cacheKey);
   const member: GuildMember | undefined = liveHasRoles
     ? liveMember
@@ -162,7 +170,9 @@ export function UserProfilePopover({ guildId, userId, trigger }: Props) {
     .sort((a, b) => b.position - a.position);
 
   const colorRole = assignedRoles.find((r) => r.color !== 0);
-  const accent = colorRole ? "#" + colorRole.color.toString(16).padStart(6, "0") : undefined;
+  const accent = colorRole
+    ? "#" + colorRole.color.toString(16).padStart(6, "0")
+    : undefined;
 
   useEffect(() => {
     if (!open || liveHasRoles || !userId) return;
@@ -196,13 +206,18 @@ export function UserProfilePopover({ guildId, userId, trigger }: Props) {
     };
   }, [open, userId, profile]);
 
-  const now = useSyncExternalStore(subscribeNow, getNowSnapshot, getNowServerSnapshot);
+  const now = useSyncExternalStore(
+    subscribeNow,
+    getNowSnapshot,
+    getNowServerSnapshot,
+  );
   const isTimedOut = member?.communication_disabled_until
     ? new Date(member.communication_disabled_until).getTime() > now
     : false;
-  const timeoutEnd = isTimedOut && member?.communication_disabled_until
-    ? new Date(member.communication_disabled_until)
-    : null;
+  const timeoutEnd =
+    isTimedOut && member?.communication_disabled_until
+      ? new Date(member.communication_disabled_until)
+      : null;
 
   const canKick = can(perms, "Kick Members") && !u?.bot;
   const canBan = can(perms, "Ban Members") && !u?.bot;
@@ -211,7 +226,8 @@ export function UserProfilePopover({ guildId, userId, trigger }: Props) {
 
   function timeoutMember(min: number | null) {
     const p = async () => {
-      const iso = min == null ? null : new Date(Date.now() + min * 60000).toISOString();
+      const iso =
+        min == null ? null : new Date(Date.now() + min * 60000).toISOString();
       const res = await serverTimeout(guildId, userId, iso);
       if (res?.message) throw new Error(res.message);
       if (res?.user?.id) upsertMember(guildId, res);
@@ -229,7 +245,11 @@ export function UserProfilePopover({ guildId, userId, trigger }: Props) {
       const res = await removeMemberRole(guildId, userId, roleId);
       if ("message" in (res ?? {}) && (res as { message?: string }).message)
         throw new Error((res as { message: string }).message);
-      if (member) upsertMember(guildId, { ...member, roles: memberRoles.filter((r) => r !== roleId) });
+      if (member)
+        upsertMember(guildId, {
+          ...member,
+          roles: memberRoles.filter((r) => r !== roleId),
+        });
     };
     toast.promise(p(), {
       loading: "Removing role",
@@ -244,7 +264,8 @@ export function UserProfilePopover({ guildId, userId, trigger }: Props) {
       const res = await addMemberRole(guildId, userId, roleId);
       if ("message" in (res ?? {}) && (res as { message?: string }).message)
         throw new Error((res as { message: string }).message);
-      if (member) upsertMember(guildId, { ...member, roles: [...memberRoles, roleId] });
+      if (member)
+        upsertMember(guildId, { ...member, roles: [...memberRoles, roleId] });
     };
     toast.promise(p(), {
       loading: "Adding role",
@@ -320,7 +341,9 @@ export function UserProfilePopover({ guildId, userId, trigger }: Props) {
                 <span
                   className="truncate"
                   style={
-                    accent ? { color: readableRoleColor(accent, theme) } : undefined
+                    accent
+                      ? { color: readableRoleColor(accent, theme) }
+                      : undefined
                   }
                 >
                   {name}
@@ -375,7 +398,10 @@ export function UserProfilePopover({ guildId, userId, trigger }: Props) {
               <div className="text-[10px] uppercase font-semibold text-muted-foreground tracking-[0.18em] mb-1 flex items-center justify-between">
                 <span>Roles</span>
                 {canRoles && availableRoles.length > 0 && (
-                  <DropdownMenu open={rolePickerOpen} onOpenChange={setRolePickerOpen}>
+                  <DropdownMenu
+                    open={rolePickerOpen}
+                    onOpenChange={setRolePickerOpen}
+                  >
                     <DropdownMenuTrigger asChild>
                       <button className="size-5 grid place-items-center rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
                         <Plus className="size-3" />
@@ -388,7 +414,9 @@ export function UserProfilePopover({ guildId, userId, trigger }: Props) {
                       <DropdownMenuLabel>Add roles</DropdownMenuLabel>
                       <DropdownMenuSeparator />
                       {availableRoles.length === 0 ? (
-                        <DropdownMenuItem disabled>No more roles</DropdownMenuItem>
+                        <DropdownMenuItem disabled>
+                          No more roles
+                        </DropdownMenuItem>
                       ) : (
                         availableRoles.map((r) => (
                           <DropdownMenuItem
@@ -417,7 +445,9 @@ export function UserProfilePopover({ guildId, userId, trigger }: Props) {
               </div>
               <div className="flex flex-wrap gap-1">
                 {assignedRoles.length === 0 && (
-                  <span className="text-[10px] text-muted-foreground">No roles</span>
+                  <span className="text-[10px] text-muted-foreground">
+                    No roles
+                  </span>
                 )}
                 {assignedRoles.slice(0, 12).map((r) => {
                   const rawHex = r.color
@@ -435,7 +465,9 @@ export function UserProfilePopover({ guildId, userId, trigger }: Props) {
                     >
                       <span
                         className="size-1.5 rounded-full"
-                        style={{ background: rawHex ?? "var(--muted-foreground)" }}
+                        style={{
+                          background: rawHex ?? "var(--muted-foreground)",
+                        }}
                       />
                       {r.name}
                       {canRoles && !r.managed && (
@@ -459,22 +491,17 @@ export function UserProfilePopover({ guildId, userId, trigger }: Props) {
             </div>
 
             <div className="flex flex-wrap gap-1 mt-4">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-7 text-xs"
-                    onClick={() => {
-                      navigator.clipboard.writeText(userId);
-                      toast.success("ID copied");
-                    }}
-                  >
-                    <Copy className="size-3 mr-1" /> ID
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Copy user ID</TooltipContent>
-              </Tooltip>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs"
+                onClick={() => {
+                  navigator.clipboard.writeText(userId);
+                  toast.success("ID copied");
+                }}
+              >
+                <Copy className="size-3 mr-1" /> ID
+              </Button>
 
               {canTimeout && (
                 <DropdownMenu>
@@ -559,7 +586,9 @@ export function UserProfilePopover({ guildId, userId, trigger }: Props) {
                       <ShieldAlert className="size-3" /> No mod permissions
                     </span>
                   </TooltipTrigger>
-                  <TooltipContent>Bot lacks moderation perms in this guild</TooltipContent>
+                  <TooltipContent>
+                    Bot lacks moderation perms in this guild
+                  </TooltipContent>
                 </Tooltip>
               )}
             </div>
@@ -584,12 +613,17 @@ function fmtElapsed(start: number, now: number): string {
   const m = Math.floor(sec / 60);
   const s = sec % 60;
   const h = Math.floor(m / 60);
-  if (h > 0) return `${h}:${String(m % 60).padStart(2, "0")}:${String(s).padStart(2, "0")} elapsed`;
+  if (h > 0)
+    return `${h}:${String(m % 60).padStart(2, "0")}:${String(s).padStart(2, "0")} elapsed`;
   return `${m}:${String(s).padStart(2, "0")} elapsed`;
 }
 
 function ActivityCard({ activity }: { activity: Activity }) {
-  const now = useSyncExternalStore(subscribeNow, getNowSnapshot, getNowServerSnapshot);
+  const now = useSyncExternalStore(
+    subscribeNow,
+    getNowSnapshot,
+    getNowServerSnapshot,
+  );
 
   if (activity.type === 4) {
     const emojiSrc =
@@ -608,7 +642,9 @@ function ActivityCard({ activity }: { activity: Activity }) {
             className="shrink-0"
           />
         ) : activity.emoji?.name ? (
-          <span className="text-base leading-none shrink-0">{activity.emoji.name}</span>
+          <span className="text-base leading-none shrink-0">
+            {activity.emoji.name}
+          </span>
         ) : null}
         <span className="break-words">{activity.state ?? ""}</span>
       </div>
@@ -617,8 +653,14 @@ function ActivityCard({ activity }: { activity: Activity }) {
 
   const verb = ACTIVITY_VERB[activity.type] ?? "Playing";
   const isSpotify = activity.name === "Spotify" || activity.type === 2;
-  const largeAsset = activityAssetUrl(activity.application_id, activity.assets?.large_image);
-  const smallAsset = activityAssetUrl(activity.application_id, activity.assets?.small_image);
+  const largeAsset = activityAssetUrl(
+    activity.application_id,
+    activity.assets?.large_image,
+  );
+  const smallAsset = activityAssetUrl(
+    activity.application_id,
+    activity.assets?.small_image,
+  );
 
   return (
     <div className="rounded-md border bg-muted/30 p-2.5 text-xs">
@@ -651,7 +693,9 @@ function ActivityCard({ activity }: { activity: Activity }) {
           <div
             className={cn(
               "size-14 shrink-0 rounded grid place-items-center text-lg font-bold",
-              isSpotify ? "bg-[#1DB954] text-black" : "bg-muted text-muted-foreground",
+              isSpotify
+                ? "bg-[#1DB954] text-black"
+                : "bg-muted text-muted-foreground",
             )}
           >
             {isSpotify ? "♪" : activity.name.charAt(0).toUpperCase()}
@@ -662,27 +706,41 @@ function ActivityCard({ activity }: { activity: Activity }) {
             <div className="font-semibold truncate">{activity.details}</div>
           )}
           {activity.state && (
-            <div className="truncate text-muted-foreground">{activity.state}</div>
-          )}
-          {activity.timestamps?.start && !activity.timestamps?.end && now > 0 && (
-            <div className="text-[10px] font-mono text-muted-foreground/80 mt-0.5">
-              {fmtElapsed(activity.timestamps.start, now)}
+            <div className="truncate text-muted-foreground">
+              {activity.state}
             </div>
           )}
-          {activity.timestamps?.start && activity.timestamps?.end && now > 0 && (
-            <SpotifyBar
-              start={activity.timestamps.start}
-              end={activity.timestamps.end}
-              now={now}
-            />
-          )}
+          {activity.timestamps?.start &&
+            !activity.timestamps?.end &&
+            now > 0 && (
+              <div className="text-[10px] font-mono text-muted-foreground/80 mt-0.5">
+                {fmtElapsed(activity.timestamps.start, now)}
+              </div>
+            )}
+          {activity.timestamps?.start &&
+            activity.timestamps?.end &&
+            now > 0 && (
+              <SpotifyBar
+                start={activity.timestamps.start}
+                end={activity.timestamps.end}
+                now={now}
+              />
+            )}
         </div>
       </div>
     </div>
   );
 }
 
-function SpotifyBar({ start, end, now }: { start: number; end: number; now: number }) {
+function SpotifyBar({
+  start,
+  end,
+  now,
+}: {
+  start: number;
+  end: number;
+  now: number;
+}) {
   const total = Math.max(1, end - start);
   const elapsed = Math.min(total, Math.max(0, now - start));
   const pct = (elapsed / total) * 100;

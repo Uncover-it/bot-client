@@ -1,8 +1,3 @@
-export function roleHexFromInt(color?: number | null): string | undefined {
-  if (!color) return undefined;
-  return "#" + color.toString(16).padStart(6, "0");
-}
-
 function hexToRgb(hex: string): [number, number, number] | null {
   const m = /^#?([a-f\d]{6})$/i.exec(hex);
   if (!m) return null;

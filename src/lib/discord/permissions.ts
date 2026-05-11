@@ -1,30 +1,9 @@
 import { PERMISSIONS } from "./constants";
 import type { Channel, Guild } from "./types";
 
-export function hasPermission(
-  permissions: string | bigint,
-  perm: keyof typeof PERMISSIONS,
-): boolean {
-  const p = typeof permissions === "string" ? BigInt(permissions) : permissions;
-  return (p & PERMISSIONS[perm]) !== 0n;
-}
-
 export function listPermissions(permissions: string | bigint): string[] {
   const p = typeof permissions === "string" ? BigInt(permissions) : permissions;
   return Object.keys(PERMISSIONS).filter((k) => (p & PERMISSIONS[k]) !== 0n);
-}
-
-export function hasAdmin(permissions: string | bigint): boolean {
-  return hasPermission(permissions, "Administrator");
-}
-
-export function bigOr(...vals: (string | bigint | undefined | null)[]): bigint {
-  let acc = 0n;
-  for (const v of vals) {
-    if (v == null) continue;
-    acc |= typeof v === "string" ? BigInt(v) : v;
-  }
-  return acc;
 }
 
 export function effectiveGuildPermissions(guild: Guild | undefined): bigint {

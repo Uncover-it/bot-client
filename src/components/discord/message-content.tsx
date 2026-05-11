@@ -2,22 +2,12 @@
 
 import { memo, useMemo } from "react";
 import { Markdown } from "@/components/ui/markdown";
-import type { Guild, Message, Role } from "@/lib/discord/types";
+import type { Guild, Message } from "@/lib/discord/types";
 
 interface Props {
   message: Message;
   guild?: Guild;
   selfUserId?: string;
-}
-
-function colorOfRoleId(roleId: string, roles: Role[] = []): number {
-  const r = roles.find((x) => x.id === roleId);
-  return r?.color ?? 0;
-}
-
-function hex(n: number): string {
-  if (!n) return "";
-  return "#" + n.toString(16).padStart(6, "0");
 }
 
 function escapeMd(label: string): string {
@@ -85,5 +75,3 @@ export const MessageContent = memo(function MessageContent({ message, guild, sel
   a.guild?.channels === b.guild?.channels &&
   a.selfUserId === b.selfUserId,
 );
-
-export { hex, colorOfRoleId };

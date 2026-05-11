@@ -1,7 +1,6 @@
 import { Suspense } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/sidebar";
-import { Toaster } from "@/components/ui/sonner";
 import { GatewayProvider } from "@/components/providers/gateway-provider";
 import { getCurrentUser, getSessionToken } from "@/api/session/actions";
 import { redirect } from "next/navigation";
@@ -14,7 +13,7 @@ async function AuthedShell({ children }: { children: React.ReactNode }) {
   if (!user) redirect("/");
 
   return (
-    <GatewayProvider initialUser={user}>
+    <GatewayProvider initialUser={user} initialToken={token}>
       <SidebarProvider defaultOpen>
         <div className="flex w-full min-w-0 max-w-full overflow-hidden">
           <AppSidebar />
@@ -23,7 +22,6 @@ async function AuthedShell({ children }: { children: React.ReactNode }) {
               <SidebarTrigger className="mt-1.5 ml-1.5 size-9 shrink-0 fixed" />
             </div>
             {children}
-            <Toaster position="top-right" />
           </main>
         </div>
       </SidebarProvider>

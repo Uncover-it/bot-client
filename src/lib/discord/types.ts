@@ -217,12 +217,3 @@ export interface GatewayPayload {
   s?: number | null;
   t?: string | null;
 }
-
-export interface ReadyData {
-  v: number;
-  user: User;
-  guilds: { id: Snowflake; unavailable: boolean }[];
-  session_id: string;
-  resume_gateway_url: string;
-  application: { id: Snowflake; flags: number };
-}
