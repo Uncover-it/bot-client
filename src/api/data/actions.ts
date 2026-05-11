@@ -178,6 +178,17 @@ export async function updateBotInfo(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });
+  if (res.ok) return res.json();
+
+  if (data.banner === null) {
+    const retry = await authed("/users/@me", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...data, banner: "" }),
+    });
+    return retry.json();
+  }
+
   return res.json();
 }
 
