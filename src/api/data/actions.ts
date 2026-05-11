@@ -42,7 +42,7 @@ async function cachedJson(
     headers: { Authorization: `Bot ${t}` },
   });
   if (!res.ok) return null;
-  return res.json();
+  return res.json().catch(() => ({ message: `HTTP ${res.status}` }));
 }
 
 async function ensureHuman() {
