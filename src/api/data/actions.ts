@@ -186,7 +186,8 @@ export async function updateBotInfo(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...data, banner: "" }),
     });
-    return retry.json();
+    if (retry.ok) return retry.json();
+    return retry.json().catch(() => ({ message: `HTTP ${retry.status}` }));
   }
 
   return res.json();
