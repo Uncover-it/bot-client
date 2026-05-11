@@ -97,6 +97,25 @@ export const Markdown = memo(function Markdown({ children, className }: Props) {
               </Link>
             );
           },
+          img: ({ src, alt }: { src?: string | Blob; alt?: string }) => {
+            if (typeof src !== "string") return null;
+            if (src.startsWith("dc:emoji/")) {
+              const rest = src.slice("dc:emoji/".length);
+              const [id, q = ""] = rest.split("?");
+              const animated = new URLSearchParams(q).get("a") === "1";
+              const ext = animated ? "gif" : "png";
+              return (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={`https://cdn.discordapp.com/emojis/${id}.${ext}`}
+                  alt={alt ?? ""}
+                  className="inline-block size-[22px] align-text-bottom"
+                  draggable={false}
+                />
+              );
+            }
+            return null;
+          },
         }}
       >
         {children}

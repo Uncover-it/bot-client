@@ -198,8 +198,16 @@ function ServerItem({ guild }: { guild: Guild }) {
   );
   const { categories, uncategorized } = useMemo(() => {
     const all = guild.channels ?? [];
+    const isVoice = (t: number) =>
+      t === CHANNEL_TYPE.GUILD_VOICE || t === CHANNEL_TYPE.GUILD_STAGE_VOICE;
     const byPosition = (a: Channel, b: Channel) =>
       (a.position ?? 0) - (b.position ?? 0);
+    const byChannelOrder = (a: Channel, b: Channel) => {
+      const av = isVoice(a.type);
+      const bv = isVoice(b.type);
+      if (av !== bv) return av ? 1 : -1;
+      return (a.position ?? 0) - (b.position ?? 0);
+    };
     const cats = all
       .filter((c) => c.type === CHANNEL_TYPE.GUILD_CATEGORY)
       .slice()
@@ -210,12 +218,12 @@ function ServerItem({ guild }: { guild: Guild }) {
       children: others
         .filter((c) => c.parent_id === cat.id)
         .slice()
-        .sort(byPosition),
+        .sort(byChannelOrder),
     }));
     const uncat = others
       .filter((c) => !c.parent_id)
       .slice()
-      .sort(byPosition);
+      .sort(byChannelOrder);
     return { categories: grouped, uncategorized: uncat };
   }, [guild.channels]);
 

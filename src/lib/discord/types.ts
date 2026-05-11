@@ -174,6 +174,12 @@ export interface Reaction {
   emoji: Emoji;
 }
 
+export interface StickerItem {
+  id: Snowflake;
+  name: string;
+  format_type: number;
+}
+
 export interface MessageReference {
   message_id?: Snowflake;
   channel_id?: Snowflake;
@@ -197,6 +203,7 @@ export interface Message {
   attachments: Attachment[];
   embeds: Embed[];
   reactions?: Reaction[];
+  sticker_items?: StickerItem[];
   pinned: boolean;
   type: number;
   referenced_message?: Message | null;

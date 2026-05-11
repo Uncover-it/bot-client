@@ -46,9 +46,10 @@ export function emojiUrl(id: string, animated = false): string {
   return `${CDN_BASE}/emojis/${id}.${animated ? "gif" : "png"}`;
 }
 
-export function stickerUrl(id: string, formatType: number): string {
-  if (formatType === 1 || formatType === 2) return `${CDN_BASE}/stickers/${id}.png?size=64`;
-  return `${CDN_BASE}/stickers/${id}?size=64`;
+export function stickerUrl(id: string, formatType: number, size = 64): string {
+  if (formatType === 4) return `https://media.discordapp.net/stickers/${id}.gif`;
+  if (formatType === 1 || formatType === 2) return `${CDN_BASE}/stickers/${id}.png?size=${size}`;
+  return `${CDN_BASE}/stickers/${id}.json`;
 }
 
 export function roleIconUrl(roleId: string, hash?: string | null): string | null {

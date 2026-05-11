@@ -57,7 +57,10 @@ export const MessageContent = memo(function MessageContent({ message, guild, sel
       return `[#${escapeMd(name)}](dc:channel/${id})`;
     });
     s = s.replace(/@(everyone|here)\b/g, (_, kind) => `[@${kind}](dc:broadcast/${kind})`);
-    s = s.replace(/<a?:(\w+):(\d+)>/g, (_, name) => `:${name}:`);
+    s = s.replace(
+      /<(a?):(\w+):(\d+)>/g,
+      (_, a, name, id) => `![:${name}:](dc:emoji/${id}?a=${a ? 1 : 0})`,
+    );
     s = s.replace(/<t:(\d+)(?::([tTdDfFR]))?>/g, (_, ts) => {
       try {
         return new Date(Number(ts) * 1000).toLocaleString();

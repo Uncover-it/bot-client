@@ -553,23 +553,33 @@ export function MessageList({ channelId, serverId, postStarterId, onReply }: Pro
               !!botUserId && m.author.id !== botUserId && (directMention || replyToBot);
             const isPostStarter = !!postStarterId && m.id === postStarterId;
             return (
-              <MessageItem
-                key={m.id}
-                message={m}
-                prev={ordered[i - 1]}
-                guild={guild}
-                guildId={serverId}
-                selfUserId={botUserId}
-                storeMember={memberById.get(m.author.id)}
-                mentionsMe={mentionsMe}
-                isPostStarter={isPostStarter}
-                onJumpReply={jumpTo}
-                hoverToolbar={renderHoverToolbar}
-                mobileMenu={renderMobileMenu}
-                authorMenu={renderAuthorMenu}
-                nameWrapper={renderNameWrapper}
-                rowContextMenu={renderContextMenu}
-              />
+              <div key={m.id}>
+                <MessageItem
+                  message={m}
+                  prev={ordered[i - 1]}
+                  guild={guild}
+                  guildId={serverId}
+                  selfUserId={botUserId}
+                  storeMember={memberById.get(m.author.id)}
+                  mentionsMe={mentionsMe}
+                  isPostStarter={isPostStarter}
+                  onJumpReply={jumpTo}
+                  hoverToolbar={renderHoverToolbar}
+                  mobileMenu={renderMobileMenu}
+                  authorMenu={renderAuthorMenu}
+                  nameWrapper={renderNameWrapper}
+                  rowContextMenu={renderContextMenu}
+                />
+                {isPostStarter && (
+                  <div className="my-3 flex items-center gap-3 px-4">
+                    <div className="h-px flex-1 bg-border" />
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Replies
+                    </span>
+                    <div className="h-px flex-1 bg-border" />
+                  </div>
+                )}
+              </div>
             );
           })}
         </div>

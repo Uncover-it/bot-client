@@ -26,7 +26,7 @@ import { ForumView } from "@/components/discord/forum-view";
 import { VoiceView } from "@/components/discord/voice-view";
 import { useRealtimeStore } from "@/lib/store";
 import { getGateway } from "@/hooks/use-gateway";
-import { getGuildMembers } from "@/api/data/actions";
+import { getChannel, getGuildMembers } from "@/api/data/actions";
 import { CHANNEL_TYPE, INTENTS } from "@/lib/discord/constants";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -48,7 +48,25 @@ export function ChannelView({ serverId, channelId }: Props) {
   const channel = guild?.channels?.find((c) => c.id === channelId);
   const membersLen = useRealtimeStore((s) => s.members.get(serverId)?.length ?? 0);
   const setMembers = useRealtimeStore((s) => s.setMembers);
+  const upsertChannel = useRealtimeStore((s) => s.upsertChannel);
   const activeIntents = useRealtimeStore((s) => s.activeIntents);
+
+  useEffect(() => {
+    if (channel) return;
+    let alive = true;
+    (async () => {
+      try {
+        const data = await getChannel(channelId);
+        if (alive && data && typeof data === "object" && "id" in data) {
+          if (!data.guild_id) data.guild_id = serverId;
+          upsertChannel(data);
+        }
+      } catch {}
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [channelId, serverId, channel, upsertChannel]);
 
   useEffect(() => {
     if (membersLen > 0) return;

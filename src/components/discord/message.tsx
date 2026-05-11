@@ -9,7 +9,7 @@ import { MessageContent } from "@/components/discord/message-content";
 import { MessageEmbed } from "@/components/discord/message-embed";
 import { MessageAttachment } from "@/components/discord/message-attachment";
 import { MessageReactions } from "@/components/discord/message-reactions";
-import { avatarUrl, memberAvatarUrl } from "@/lib/discord/cdn";
+import { avatarUrl, memberAvatarUrl, stickerUrl } from "@/lib/discord/cdn";
 import { readableRoleColor } from "@/lib/discord/role-color";
 import { useResolvedTheme } from "@/hooks/use-resolved-theme";
 import type { Guild, GuildMember, Message, Presence } from "@/lib/discord/types";
@@ -246,6 +246,33 @@ export const MessageItem = memo(function MessageItem({
             {message.embeds.map((e, i) => (
               <MessageEmbed key={i} embed={e} />
             ))}
+          </div>
+        )}
+        {message.sticker_items && message.sticker_items.length > 0 && (
+          <div className="mt-1 flex flex-wrap gap-2">
+            {message.sticker_items.map((s) =>
+              s.format_type === 3 ? (
+                <div
+                  key={s.id}
+                  className="px-2 py-1 rounded bg-muted text-xs text-muted-foreground"
+                  title={s.name}
+                >
+                  Sticker: {s.name}
+                </div>
+              ) : (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img
+                  key={s.id}
+                  src={stickerUrl(s.id, s.format_type, 160)}
+                  alt={s.name}
+                  title={s.name}
+                  width={160}
+                  height={160}
+                  className="rounded"
+                  draggable={false}
+                />
+              ),
+            )}
           </div>
         )}
         {guildId && message.reactions && message.reactions.length > 0 && (
