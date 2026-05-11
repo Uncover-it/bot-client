@@ -30,6 +30,7 @@ import { getChannel, getGuildMembers } from "@/api/data/actions";
 import { CHANNEL_TYPE, INTENTS } from "@/lib/discord/constants";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useKeyboardInset } from "@/hooks/use-keyboard-inset";
 import type { GuildMember } from "@/lib/discord/types";
 
 interface Props {
@@ -42,6 +43,7 @@ export function ChannelView({ serverId, channelId }: Props) {
   const [mobileSheet, setMobileSheet] = useState(false);
   const [reply, setReply] = useState<ReplyTarget | null>(null);
   const isMobile = useIsMobile();
+  useKeyboardInset();
   const showMembers = memberOverride !== null ? memberOverride : !isMobile;
 
   const guild = useRealtimeStore((s) => s.guilds.get(serverId));
@@ -121,7 +123,10 @@ export function ChannelView({ serverId, channelId }: Props) {
   const postStarterId = isThread && parentIsForum ? channelId : undefined;
 
   return (
-    <div className="flex h-dvh w-full overflow-hidden">
+    <div
+      className="flex w-full overflow-hidden"
+      style={{ height: "calc(100dvh - var(--kb, 0px))" }}
+    >
       <main className="flex-1 flex flex-col min-w-0">
         <header className="h-12 shrink-0 border-b flex items-center pl-12 pr-2 md:pl-12 md:pr-4 gap-2 md:gap-3 bg-background/80 backdrop-blur-sm min-w-0">
           <Icon className="size-4 text-muted-foreground shrink-0" />

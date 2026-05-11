@@ -703,6 +703,7 @@ export function MessageInput({
         )}
         <Button
           size="icon"
+          onMouseDown={(e) => e.preventDefault()}
           onClick={send}
           disabled={!canSend || sending || (!text.trim() && files.length === 0)}
           aria-busy={sending}

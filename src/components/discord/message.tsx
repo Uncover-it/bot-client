@@ -150,7 +150,7 @@ export const MessageItem = memo(function MessageItem({
           {hoverToolbar(message)}
         </div>
       )}
-      {mobileMenu && (
+      {mobileMenu && !grouped && (
         <div className="absolute top-1.5 right-1 md:hidden z-[1]">
           {mobileMenu(message)}
         </div>
