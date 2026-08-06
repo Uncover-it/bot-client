@@ -25,24 +25,37 @@ async function authed(path: string, init: RequestInit = {}): Promise<Response> {
 }
 
 const LIFE = {
-  seconds: { stale: 0, revalidate: 1, expire: 60 },
   minutes: { stale: 60, revalidate: 60, expire: 300 },
   hours: { stale: 300, revalidate: 3600, expire: 86400 },
-  days: { stale: 3600, revalidate: 86400, expire: 604800 },
 } as const;
 
-async function cachedJson(
-  t: string,
-  path: string,
-  life: keyof typeof LIFE,
-) {
+/** Build an Error carrying Discord's own message when it sent one. */
+async function discordError(res: Response, fallback: string): Promise<Error> {
+  const body = (await res.json().catch(() => null)) as { message?: string } | null;
+  return new Error(body?.message ?? `${fallback} (HTTP ${res.status})`);
+}
+
+async function cachedFetch(t: string, path: string, life: keyof typeof LIFE) {
   "use cache";
   cacheLife(LIFE[life]);
   const res = await fetch(`${API_BASE}${path}`, {
     headers: { Authorization: `Bot ${t}` },
   });
-  if (!res.ok) return null;
+  // Throw rather than return null: a returned value gets committed to the
+  // cache, so one transient 429/5xx would pin this path to "empty" for the
+  // whole revalidate window. Throwing leaves the entry uncached and lets the
+  // next call retry.
+  if (!res.ok) throw await discordError(res, `GET ${path} failed`);
   return res.json();
+}
+
+/** Cached GET. Failures come back as null and are not cached. */
+async function cachedJson(t: string, path: string, life: keyof typeof LIFE) {
+  try {
+    return await cachedFetch(t, path, life);
+  } catch {
+    return null;
+  }
 }
 
 async function ensureHuman() {
@@ -300,6 +313,7 @@ export async function getMessages(channelId: string, before?: string) {
   const res = await authed(`/channels/${channelId}/messages?${qs}`, {
     cache: "no-store",
   });
+  if (!res.ok) throw await discordError(res, "Failed to load messages");
   return res.json();
 }
 
@@ -372,7 +386,11 @@ export async function getChannel(channelId: string) {
 
 export async function deleteMessage(channelId: string, messageId: string) {
   await ensureHuman();
-  return authed(`/channels/${channelId}/messages/${messageId}`, { method: "DELETE" });
+  const res = await authed(`/channels/${channelId}/messages/${messageId}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) throw await discordError(res, "Failed to delete message");
+  return { ok: true };
 }
 
 export async function pinMessage(channelId: string, messageId: string) {
@@ -491,15 +509,19 @@ export async function getGuildEmojis(guildId: string) {
 }
 
 export async function addReaction(channelId: string, messageId: string, emoji: string) {
-  await authed(
+  const res = await authed(
     `/channels/${channelId}/messages/${messageId}/reactions/${encodeURIComponent(emoji)}/@me`,
     { method: "PUT" },
   );
+  if (!res.ok) throw await discordError(res, "Failed to add reaction");
+  return { ok: true };
 }
 
 export async function removeReaction(channelId: string, messageId: string, emoji: string) {
-  await authed(
+  const res = await authed(
     `/channels/${channelId}/messages/${messageId}/reactions/${encodeURIComponent(emoji)}/@me`,
     { method: "DELETE" },
   );
+  if (!res.ok) throw await discordError(res, "Failed to remove reaction");
+  return { ok: true };
 }

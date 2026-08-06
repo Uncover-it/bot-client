@@ -13,7 +13,7 @@ import { MessageReactions } from "@/components/discord/message-reactions";
 import { avatarUrl, memberAvatarUrl, stickerUrl } from "@/lib/discord/cdn";
 import { readableRoleColor } from "@/lib/discord/role-color";
 import { useResolvedTheme } from "@/hooks/use-resolved-theme";
-import type { Guild, GuildMember, Message, Presence } from "@/lib/discord/types";
+import type { Guild, GuildMember, Message, Presence, Role } from "@/lib/discord/types";
 
 interface Props {
   message: Message;
@@ -26,7 +26,9 @@ interface Props {
   mentionsMe?: boolean;
   isPostStarter?: boolean;
   editing?: boolean;
-  onEditSave?: (next: string) => void;
+  // Takes the message back so callers can pass one stable callback for every
+  // row instead of a per-row closure, which would defeat the memo below.
+  onEditSave?: (message: Message, next: string) => void;
   onEditCancel?: () => void;
   rowContextMenu?: (m: Message, children: ReactNode) => ReactNode;
   authorMenu?: (m: Message) => React.ReactNode;
@@ -53,7 +55,20 @@ function shortTime(d: string): string {
   return new Date(d).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 }
 
+// Last known colour per guild member, used only as a fallback while role data
+// is missing. Bounded so a long session cannot grow it without limit.
+const COLOR_CACHE_MAX = 2000;
 const colorCache = new Map<string, string>();
+
+function rememberColor(key: string, hex: string) {
+  // Re-inserting moves the key to the back, so the oldest entry is evicted.
+  colorCache.delete(key);
+  colorCache.set(key, hex);
+  if (colorCache.size > COLOR_CACHE_MAX) {
+    const oldest = colorCache.keys().next().value;
+    if (oldest !== undefined) colorCache.delete(oldest);
+  }
+}
 
 function authorColor(
   message: Message,
@@ -65,14 +80,16 @@ function authorColor(
   if (!guild?.roles || !memberRoles) {
     return cacheKey ? colorCache.get(cacheKey) : undefined;
   }
-  const sorted = [...guild.roles]
-    .filter((r) => memberRoles.includes(r.id) && r.color !== 0)
-    .sort((a, b) => b.position - a.position);
-  if (!sorted.length) {
+  let top: Role | undefined;
+  for (const r of guild.roles) {
+    if (r.color === 0 || !memberRoles.includes(r.id)) continue;
+    if (!top || r.position > top.position) top = r;
+  }
+  if (!top) {
     return cacheKey ? colorCache.get(cacheKey) : undefined;
   }
-  const hex = "#" + sorted[0].color.toString(16).padStart(6, "0");
-  if (cacheKey) colorCache.set(cacheKey, hex);
+  const hex = "#" + top.color.toString(16).padStart(6, "0");
+  if (cacheKey) rememberColor(cacheKey, hex);
   return hex;
 }
 
@@ -259,7 +276,7 @@ export const MessageItem = memo(function MessageItem({
                     !e.nativeEvent.isComposing
                   ) {
                     e.preventDefault();
-                    onEditSave?.(e.currentTarget.value);
+                    onEditSave?.(message, e.currentTarget.value);
                   }
                   if (e.key === "Escape") {
                     e.preventDefault();
@@ -284,7 +301,7 @@ export const MessageItem = memo(function MessageItem({
                 </button>
                 <button
                   type="button"
-                  onClick={() => onEditSave?.(editRef.current?.value ?? "")}
+                  onClick={() => onEditSave?.(message, editRef.current?.value ?? "")}
                   className="text-primary hover:underline font-medium"
                 >
                   save

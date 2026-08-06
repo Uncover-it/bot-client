@@ -28,10 +28,17 @@ export interface GatewayOptions {
   onIntents?: (active: number) => void;
 }
 
+// How long a socket may sit in connecting/identifying before we give up on it.
+// Discord normally sends HELLO within a second or two.
+const CONNECT_TIMEOUT_MS = 20000;
+
 export class DiscordGateway {
   private ws: WebSocket | null = null;
   private heartbeatInterval = 0;
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+  private heartbeatStartTimer: ReturnType<typeof setTimeout> | null = null;
+  private invalidSessionTimer: ReturnType<typeof setTimeout> | null = null;
+  private connectTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private lastHeartbeatSent = 0;
   private lastSequence: number | null = null;
@@ -65,22 +72,29 @@ export class DiscordGateway {
       this.reconnectTimer = null;
     }
     this.reconnectAttempts = 0;
-    if (this.ws && this.ws.readyState !== WebSocket.CLOSED) {
-      if (this.ws.readyState === WebSocket.OPEN) {
-        this.ws.close(4000, "force reconnect");
-      }
+    this.closedByUser = false;
+
+    const ws = this.ws;
+    if (!ws || ws.readyState === WebSocket.CLOSED) {
+      this.connect();
       return;
     }
+
+    // OPEN, CONNECTING and CLOSING all get torn down here. Dropping the
+    // reference first means the old socket's onclose is ignored (it checks
+    // identity), so we reconnect exactly once from this path.
+    this.ws = null;
+    this.clearHeartbeat();
+    this.clearConnectTimeout();
+    try {
+      ws.close(4000, "force reconnect");
+    } catch {}
     this.connect();
   }
 
   disconnect() {
     this.closedByUser = true;
-    this.clearHeartbeat();
-    if (this.reconnectTimer) {
-      clearTimeout(this.reconnectTimer);
-      this.reconnectTimer = null;
-    }
+    this.clearAllTimers();
     this.ws?.close(1000, "client disconnect");
     this.ws = null;
     this.setState("disconnected");
@@ -94,6 +108,7 @@ export class DiscordGateway {
 
   requestGuildMembers(guildId: string, query = "", limit = 0) {
     if (!(this.intents & INTENTS.GUILD_MEMBERS)) return false;
+    if (this.ws?.readyState !== WebSocket.OPEN) return false;
     this.send({
       op: OP.REQUEST_GUILD_MEMBERS,
       d: { guild_id: guildId, query, limit, presences: !!(this.intents & INTENTS.GUILD_PRESENCES) },
@@ -122,12 +137,14 @@ export class DiscordGateway {
     const ws = new WebSocket(url);
     this.ws = ws;
     this.acked = true;
+    this.armConnectTimeout(ws);
 
     ws.onopen = () => {
       this.reconnectAttempts = 0;
     };
 
     ws.onmessage = (ev) => {
+      if (this.ws !== ws) return;
       let payload: GatewayPayload;
       try {
         payload = JSON.parse(ev.data);
@@ -140,7 +157,15 @@ export class DiscordGateway {
     ws.onerror = () => {};
 
     ws.onclose = (ev) => {
+      // A socket we already replaced must not drive reconnect logic.
+      if (this.ws !== ws) return;
+      this.ws = null;
       this.clearHeartbeat();
+      this.clearConnectTimeout();
+      if (this.invalidSessionTimer) {
+        clearTimeout(this.invalidSessionTimer);
+        this.invalidSessionTimer = null;
+      }
       if (this.closedByUser) return;
 
       // Disallowed intents — drop privileged, retry once
@@ -217,7 +242,15 @@ export class DiscordGateway {
           this.lastSequence = null;
           this.resumeUrl = null;
         }
-        setTimeout(() => this.ws?.close(4000, "invalid session"), 1000 + Math.random() * 4000);
+        if (this.invalidSessionTimer) clearTimeout(this.invalidSessionTimer);
+        const ws = this.ws;
+        this.invalidSessionTimer = setTimeout(
+          () => {
+            this.invalidSessionTimer = null;
+            if (this.ws === ws) ws?.close(4000, "invalid session");
+          },
+          1000 + Math.random() * 4000,
+        );
         break;
       }
       case OP.DISPATCH: {
@@ -227,8 +260,10 @@ export class DiscordGateway {
           const data = d as { session_id: string; resume_gateway_url: string };
           this.sessionId = data.session_id;
           this.resumeUrl = `${data.resume_gateway_url}/?v=10&encoding=json`;
+          this.clearConnectTimeout();
           this.setState("ready");
         } else if (t === "RESUMED") {
+          this.clearConnectTimeout();
           this.setState("ready");
         }
         this.opts.onDispatch?.(t, d);
@@ -239,12 +274,22 @@ export class DiscordGateway {
 
   private startHeartbeat() {
     this.clearHeartbeat();
+    // The initial beat is jittered across a full interval (~41s), so this
+    // handle has to be cancellable: a reconnect inside that window would
+    // otherwise leave a second heartbeat loop running against a dead socket.
+    const ws = this.ws;
     const jitter = Math.random();
-    setTimeout(() => {
+    this.heartbeatStartTimer = setTimeout(() => {
+      this.heartbeatStartTimer = null;
+      if (this.ws !== ws) return;
       this.sendHeartbeat();
       this.heartbeatTimer = setInterval(() => {
+        if (this.ws !== ws) {
+          this.clearHeartbeat();
+          return;
+        }
         if (!this.acked) {
-          this.ws?.close(4009, "zombie connection");
+          ws?.close(4009, "zombie connection");
           return;
         }
         this.sendHeartbeat();
@@ -259,9 +304,49 @@ export class DiscordGateway {
   }
 
   private clearHeartbeat() {
+    if (this.heartbeatStartTimer) {
+      clearTimeout(this.heartbeatStartTimer);
+      this.heartbeatStartTimer = null;
+    }
     if (this.heartbeatTimer) {
       clearInterval(this.heartbeatTimer);
       this.heartbeatTimer = null;
+    }
+  }
+
+  private armConnectTimeout(ws: WebSocket) {
+    this.clearConnectTimeout();
+    this.connectTimer = setTimeout(() => {
+      this.connectTimer = null;
+      if (this.ws !== ws) return;
+      // Never reached READY. Drop the reference so the late onclose is
+      // ignored, then back off and try again.
+      this.ws = null;
+      this.clearHeartbeat();
+      try {
+        ws.close(4000, "connect timeout");
+      } catch {}
+      if (!this.closedByUser) this.scheduleReconnect();
+    }, CONNECT_TIMEOUT_MS);
+  }
+
+  private clearConnectTimeout() {
+    if (this.connectTimer) {
+      clearTimeout(this.connectTimer);
+      this.connectTimer = null;
+    }
+  }
+
+  private clearAllTimers() {
+    this.clearHeartbeat();
+    this.clearConnectTimeout();
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    if (this.invalidSessionTimer) {
+      clearTimeout(this.invalidSessionTimer);
+      this.invalidSessionTimer = null;
     }
   }
 

@@ -17,10 +17,22 @@ type GuildMembers = Map<string, GuildMember[]>;
 type GuildPresences = Map<string, Presence[]>;
 type TypingMap = Map<string, Map<string, number>>;
 
+/**
+ * Ceiling on a single channel's history. Only live gateway appends trim (the
+ * oldest fall out); pagination is user-driven and left alone so scrolling up
+ * never fights the cap.
+ */
+const MAX_MESSAGES_PER_CHANNEL = 1000;
+
+/** How many channels keep their history once the user navigates away. */
+const MAX_CACHED_CHANNELS = 8;
+
 interface State {
   user: User | null;
   guilds: Map<string, Guild>;
   messages: ChannelMessages;
+  /** LRU of opened channels, most recently opened last. */
+  channelOrder: string[];
   members: GuildMembers;
   presences: GuildPresences;
   typing: TypingMap;
@@ -37,6 +49,7 @@ interface State {
   removeChannel: (id: string, guildId?: string) => void;
   setRoles: (guildId: string, roles: Role[]) => void;
   setEmojis: (guildId: string, emojis: import("@/lib/discord/types").Emoji[]) => void;
+  openChannel: (channelId: string) => void;
   setMessages: (channelId: string, messages: Message[]) => void;
   prependMessages: (channelId: string, messages: Message[]) => void;
   addMessage: (m: Message) => void;
@@ -71,7 +84,6 @@ interface State {
     emoji: { id?: string | null; name?: string | null },
     on: boolean,
   ) => void;
-  upsertPresence: (guildId: string, presence: Presence) => void;
   setPresences: (guildId: string, presences: Presence[]) => void;
   setTyping: (channelId: string, userId: string) => void;
   pruneTyping: () => void;
@@ -81,6 +93,7 @@ export const useRealtimeStore = create<State>((set) => ({
   user: null,
   guilds: new Map(),
   messages: new Map(),
+  channelOrder: [],
   members: new Map(),
   presences: new Map(),
   typing: new Map(),
@@ -141,10 +154,30 @@ export const useRealtimeStore = create<State>((set) => ({
       next.set(guildId, { ...g, emojis });
       return { guilds: next };
     }),
+  openChannel: (channelId) =>
+    set((state) => {
+      const order = state.channelOrder.filter((id) => id !== channelId);
+      order.push(channelId);
+      const messages = new Map(state.messages);
+      // Seed the entry so gateway messages that land before the first REST
+      // page are kept instead of dropped by addMessage.
+      if (!messages.has(channelId)) messages.set(channelId, []);
+      while (order.length > MAX_CACHED_CHANNELS) {
+        const evicted = order.shift();
+        if (evicted) messages.delete(evicted);
+      }
+      return { channelOrder: order, messages };
+    }),
   setMessages: (channelId, messages) =>
     set((state) => {
       const next = new Map(state.messages);
-      next.set(channelId, messages);
+      const cur = next.get(channelId);
+      // Whatever is already here arrived over the gateway (or is still
+      // pending) while this page was in flight, so it is newer than the
+      // entire page and stays at the front.
+      const ids = new Set(messages.map((m) => m.id));
+      const live = cur?.filter((m) => !ids.has(m.id)) ?? [];
+      next.set(channelId, live.length ? live.concat(messages) : messages);
       return { messages: next };
     }),
   prependMessages: (channelId, older) =>
@@ -158,9 +191,12 @@ export const useRealtimeStore = create<State>((set) => ({
     }),
   addMessage: (m) =>
     set((state) => {
+      const cur = state.messages.get(m.channel_id);
+      // Only track channels the user has opened. Without this the store
+      // accumulates every message in every channel the bot can see, forever.
+      if (!cur) return {};
+      if (cur.some((x) => x.id === m.id)) return {};
       const next = new Map(state.messages);
-      const cur = next.get(m.channel_id) ?? [];
-      if (cur.find((x) => x.id === m.id)) return {};
       if (m.nonce != null) {
         const nonceStr = String(m.nonce);
         const idx = cur.findIndex(
@@ -173,7 +209,13 @@ export const useRealtimeStore = create<State>((set) => ({
           return { messages: next };
         }
       }
-      next.set(m.channel_id, [m, ...cur]);
+      const grown = [m, ...cur];
+      next.set(
+        m.channel_id,
+        grown.length > MAX_MESSAGES_PER_CHANNEL
+          ? grown.slice(0, MAX_MESSAGES_PER_CHANNEL)
+          : grown,
+      );
       return { messages: next };
     }),
   updateMessage: (m) =>
@@ -384,14 +426,6 @@ export const useRealtimeStore = create<State>((set) => ({
       next.set(channelId, updated);
       return { messages: next };
     }),
-  upsertPresence: (guildId, presence) =>
-    set((state) => {
-      const next = new Map(state.presences);
-      const cur = next.get(guildId) ?? [];
-      const filtered = cur.filter((p) => p.user.id !== presence.user.id);
-      next.set(guildId, filtered.concat(presence));
-      return { presences: next };
-    }),
   setPresences: (guildId, presences) =>
     set((state) => {
       const next = new Map(state.presences);
@@ -412,14 +446,19 @@ export const useRealtimeStore = create<State>((set) => ({
   pruneTyping: () =>
     set((state) => {
       const now = Date.now();
+      let expired = false;
       const next = new Map<string, Map<string, number>>();
       state.typing.forEach((inner, k) => {
         const fresh = new Map<string, number>();
         inner.forEach((exp, uid) => {
           if (exp > now) fresh.set(uid, exp);
+          else expired = true;
         });
         if (fresh.size) next.set(k, fresh);
       });
+      // This runs every 3s. Committing a fresh Map each tick would re-render
+      // every typing subscriber for nothing, so only write on a real change.
+      if (!expired) return {};
       return { typing: next };
     }),
 }));

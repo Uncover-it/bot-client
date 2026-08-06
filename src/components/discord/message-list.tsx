@@ -91,6 +91,7 @@ export function MessageList({
   const typingMap = useRealtimeStore((s) => s.typing.get(channelId));
   const members = useRealtimeStore((s) => s.members.get(serverId));
   const setMessages = useRealtimeStore((s) => s.setMessages);
+  const openChannel = useRealtimeStore((s) => s.openChannel);
   const prepend = useRealtimeStore((s) => s.prependMessages);
   const botUserId = useRealtimeStore((s) => s.user?.id);
   const addReactionStore = useRealtimeStore((s) => s.addReaction);
@@ -110,7 +111,11 @@ export function MessageList({
   const [reactingId, setReactingId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const innerRef = useRef<HTMLDivElement>(null);
   const atBottomRef = useRef(true);
+  // Blocks pagination retries for a moment after a failure so the scroll
+  // handler cannot hammer the endpoint.
+  const olderRetryAt = useRef(0);
   useEffect(() => {
     atBottomRef.current = atBottom;
   }, [atBottom]);
@@ -141,6 +146,8 @@ export function MessageList({
     [channelId, updateMessageStore],
   );
 
+  const cancelEdit = useCallback(() => setEditingId(null), []);
+
   const jumpTo = useCallback((id: string) => {
     const el = scrollRef.current?.querySelector(
       `[data-message-id="${id}"]`,
@@ -161,17 +168,23 @@ export function MessageList({
 
   useEffect(() => {
     let alive = true;
+    // Registers the channel in the store's LRU and seeds its entry, so live
+    // gateway messages arriving during the fetch below are kept.
+    openChannel(channelId);
     const cached = useRealtimeStore.getState().messages.get(channelId);
-    setHydrating(!cached);
+    const hasCache = !!cached && cached.length > 0;
+    setHydrating(!hasCache);
     setExhausted(false);
-    if (cached && cached.length > 0) return;
+    if (hasCache) return;
     (async () => {
       try {
         const fresh: Message[] = await getMessages(channelId);
         if (!alive || !Array.isArray(fresh)) return;
         setMessages(channelId, fresh);
-      } catch {
-        toast.error("Failed to load messages");
+      } catch (e) {
+        if (alive) {
+          toast.error(e instanceof Error ? e.message : "Failed to load messages");
+        }
       } finally {
         if (alive) setHydrating(false);
       }
@@ -179,7 +192,7 @@ export function MessageList({
     return () => {
       alive = false;
     };
-  }, [channelId, setMessages]);
+  }, [channelId, setMessages, openChannel]);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -195,16 +208,15 @@ export function MessageList({
     };
     const ro = new ResizeObserver(snap);
     ro.observe(el);
-    const inner = el.firstElementChild;
-    if (inner) ro.observe(inner);
-    const imgs = el.querySelectorAll("img");
-    const onLoad = () => snap();
-    imgs.forEach((img) => img.addEventListener("load", onLoad));
+    if (innerRef.current) ro.observe(innerRef.current);
+    // "load" does not bubble, but it does capture. One delegated listener
+    // beats rebinding one per <img> every time a message arrives.
+    el.addEventListener("load", snap, true);
     return () => {
       ro.disconnect();
-      imgs.forEach((img) => img.removeEventListener("load", onLoad));
+      el.removeEventListener("load", snap, true);
     };
-  }, [hydrating, messages]);
+  }, [hydrating]);
 
   useEffect(() => {
     const refresh = async () => {
@@ -239,7 +251,13 @@ export function MessageList({
     if (!el) return;
     const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
     setAtBottom(distanceFromBottom < 80);
-    if (el.scrollTop < 60 && !loadingOlder && !exhausted && messages?.length) {
+    if (
+      el.scrollTop < 60 &&
+      !loadingOlder &&
+      !exhausted &&
+      messages?.length &&
+      Date.now() >= olderRetryAt.current
+    ) {
       loadOlder();
     }
   }
@@ -263,6 +281,11 @@ export function MessageList({
       } else {
         setExhausted(true);
       }
+    } catch (e) {
+      // Not exhausted, just failed. Back off instead of showing "beginning of
+      // channel", so a transient error does not look like the end of history.
+      olderRetryAt.current = Date.now() + 5000;
+      toast.error(e instanceof Error ? e.message : "Failed to load older messages");
     } finally {
       setLoadingOlder(false);
     }
@@ -289,8 +312,7 @@ export function MessageList({
 
   const renderHoverToolbar = useCallback(
     (msg: Message) => {
-      const selfId = useRealtimeStore.getState().user?.id;
-      const isMine = msg.author.id === selfId;
+      const isMine = msg.author.id === botUserId;
       return (
       <>
         <Popover>
@@ -370,8 +392,7 @@ export function MessageList({
             <Pin className="size-4 md:size-3" />
           )}
         </button>
-        {(msg.author.id === useRealtimeStore.getState().user?.id ||
-          canManageMessages) && (
+        {(isMine || canManageMessages) && (
           <button
             onClick={() => {
               const p = async () => deleteMessage(channelId, msg.id);
@@ -387,14 +408,13 @@ export function MessageList({
       </>
       );
     },
-    [onReply, channelId, canManageMessages, serverId, addReactionStore, markReactionPending, removeReactionStore],
+    [onReply, channelId, canManageMessages, serverId, botUserId, addReactionStore, markReactionPending, removeReactionStore],
   );
 
   const renderMobileMenu = useCallback(
     (msg: Message) => {
-      const selfId = useRealtimeStore.getState().user?.id;
-      const canDelete = msg.author.id === selfId || canManageMessages;
-      const canEdit = msg.author.id === selfId && !msg.__pending;
+      const canDelete = msg.author.id === botUserId || canManageMessages;
+      const canEdit = msg.author.id === botUserId && !msg.__pending;
       return (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -482,7 +502,7 @@ export function MessageList({
         </DropdownMenu>
       );
     },
-    [onReply, channelId, canManageMessages],
+    [onReply, channelId, canManageMessages, botUserId],
   );
 
   const renderNameWrapper = useCallback(
@@ -600,12 +620,11 @@ export function MessageList({
             >
               <Reply /> Reply
             </ContextMenuItem>
-            {msg.author.id === useRealtimeStore.getState().user?.id &&
-              !msg.__pending && (
-                <ContextMenuItem onSelect={() => setEditingId(msg.id)}>
-                  <Pencil /> Edit
-                </ContextMenuItem>
-              )}
+            {msg.author.id === botUserId && !msg.__pending && (
+              <ContextMenuItem onSelect={() => setEditingId(msg.id)}>
+                <Pencil /> Edit
+              </ContextMenuItem>
+            )}
             <ContextMenuItem
               onSelect={() => {
                 const p = async () => {
@@ -643,21 +662,8 @@ export function MessageList({
         </ContextMenuContent>
       </ContextMenu>
     ),
-    [onReply, channelId],
+    [onReply, channelId, botUserId],
   );
-
-  const typingNames = useMemo(() => {
-    if (!typingMap) return [];
-    const ids = Array.from(typingMap.keys());
-    const names: string[] = [];
-    ids.forEach((id) => {
-      const m = members?.find((mm) => mm.user?.id === id);
-      if (m)
-        names.push(m.nick ?? m.user?.global_name ?? m.user?.username ?? id);
-      else names.push(id);
-    });
-    return names.slice(0, 3);
-  }, [typingMap, members]);
 
   const memberById = useMemo(() => {
     const m = new Map<string, GuildMember>();
@@ -667,6 +673,23 @@ export function MessageList({
     return m;
   }, [members]);
 
+  const typingNames = useMemo(() => {
+    if (!typingMap) return [];
+    const names: string[] = [];
+    for (const id of typingMap.keys()) {
+      if (names.length === 3) break;
+      const m = memberById.get(id);
+      names.push(m ? (m.nick ?? m.user?.global_name ?? m.user?.username ?? id) : id);
+    }
+    return names;
+  }, [typingMap, memberById]);
+
+  // Store order is newest-first; the view renders oldest-first.
+  const ordered = useMemo(
+    () => (messages ? messages.slice().reverse() : []),
+    [messages],
+  );
+
   if (hydrating) {
     return (
       <div className="size-full flex items-center justify-center text-muted-foreground">
@@ -675,9 +698,6 @@ export function MessageList({
       </div>
     );
   }
-
-  const list = messages ?? [];
-  const ordered = [...list].reverse();
 
   return (
     <div className="relative flex-1 min-h-0 flex flex-col">
@@ -697,7 +717,7 @@ export function MessageList({
             Beginning of channel
           </div>
         )}
-        <div>
+        <div ref={innerRef}>
           {ordered.map((m, i) => {
             const refAuthor = m.referenced_message?.author?.id;
             const replyToBot = !!botUserId && refAuthor === botUserId;
@@ -720,8 +740,8 @@ export function MessageList({
                   mentionsMe={mentionsMe}
                   isPostStarter={isPostStarter}
                   editing={editingId === m.id}
-                  onEditSave={(text) => commitEdit(m, text)}
-                  onEditCancel={() => setEditingId(null)}
+                  onEditSave={commitEdit}
+                  onEditCancel={cancelEdit}
                   onJumpReply={jumpTo}
                   hoverToolbar={renderHoverToolbar}
                   mobileMenu={renderMobileMenu}

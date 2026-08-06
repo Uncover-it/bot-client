@@ -1,8 +1,10 @@
 import type { MetadataRoute } from "next";
+import { cacheLife } from "next/cache"
 
-export const dynamic = "force-static";
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  "use cache";
+  cacheLife("max");
 
-export default function sitemap(): MetadataRoute.Sitemap {
   return [
     {
       url: "https://bot.uncoverit.org",

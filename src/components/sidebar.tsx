@@ -193,6 +193,9 @@ export function AppSidebar() {
 
 function ServerItem({ guild }: { guild: Guild }) {
   const icon = useMemo(() => guildIconUrl(guild.id, guild.icon), [guild.id, guild.icon]);
+  // Resolved once per guild rather than once per channel row.
+  const perms = useGuildPermissions(guild.id);
+  const canManageChannels = can(perms, "Manage Channels");
   const enabledPerms = useMemo(
     () => (guild.permissions ? listPermissions(guild.permissions) : []),
     [guild.permissions],
@@ -300,7 +303,12 @@ function ServerItem({ guild }: { guild: Guild }) {
         <CollapsibleContent>
           <SidebarMenuSub>
             {uncategorized.map((c) => (
-              <ChannelLink key={c.id} guildId={guild.id} channel={c} />
+              <ChannelLink
+                key={c.id}
+                guildId={guild.id}
+                channel={c}
+                canManage={canManageChannels}
+              />
             ))}
             {categories.map(({ cat, children }) => (
               <CategoryGroup
@@ -308,6 +316,7 @@ function ServerItem({ guild }: { guild: Guild }) {
                 guildId={guild.id}
                 category={cat}
                 channels={children}
+                canManage={canManageChannels}
               />
             ))}
           </SidebarMenuSub>
@@ -321,10 +330,12 @@ function CategoryGroup({
   guildId,
   category,
   channels,
+  canManage,
 }: {
   guildId: string;
   category: Channel;
   channels: Channel[];
+  canManage: boolean;
 }) {
   return (
     <Collapsible defaultOpen className="group/cat">
@@ -334,17 +345,28 @@ function CategoryGroup({
       </CollapsibleTrigger>
       <CollapsibleContent>
         {channels.map((c) => (
-          <ChannelLink key={c.id} guildId={guildId} channel={c} />
+          <ChannelLink
+            key={c.id}
+            guildId={guildId}
+            channel={c}
+            canManage={canManage}
+          />
         ))}
       </CollapsibleContent>
     </Collapsible>
   );
 }
 
-function ChannelLink({ guildId, channel }: { guildId: string; channel: Channel }) {
+function ChannelLink({
+  guildId,
+  channel,
+  canManage,
+}: {
+  guildId: string;
+  channel: Channel;
+  canManage: boolean;
+}) {
   const [editOpen, setEditOpen] = useState(false);
-  const perms = useGuildPermissions(guildId);
-  const canManage = can(perms, "Manage Channels");
   const { isMobile, setOpenMobile } = useSidebar();
   const Icon =
     channel.type === CHANNEL_TYPE.GUILD_VOICE

@@ -52,6 +52,15 @@ function bufferPresences(guildId: string, presences: Presence[]) {
   scheduleFlush();
 }
 
+function discardBuffers() {
+  if (flushTimer) {
+    clearTimeout(flushTimer);
+    flushTimer = null;
+  }
+  memberBuffer.clear();
+  presenceBuffer.clear();
+}
+
 export function useGateway(token: string | null) {
   const started = useRef(false);
   const store = useRealtimeStore;
@@ -86,6 +95,9 @@ export function useGateway(token: string | null) {
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("focus", onVisibility);
       gw.disconnect();
+      // These live at module scope; a pending flush would otherwise write to
+      // the store after teardown.
+      discardBuffers();
       singleton = null;
       started.current = false;
     };

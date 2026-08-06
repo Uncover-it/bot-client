@@ -1,14 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useRealtimeStore } from "@/lib/store";
-import { getGateway } from "@/hooks/use-gateway";
 import { Input } from "@/components/ui/input";
 import { DiscordAvatar } from "@/components/ui/discord-avatar";
 import { avatarUrl } from "@/lib/discord/cdn";
 import { UserProfilePopover } from "@/components/discord/user-profile-popover";
 import { IntentBanner } from "@/components/discord/intent-warning";
-import { getGuildMembers } from "@/api/data/actions";
 import { INTENTS } from "@/lib/discord/constants";
 import type { GuildMember, Presence, Role } from "@/lib/discord/types";
 import { readableRoleColor } from "@/lib/discord/role-color";
@@ -19,9 +17,16 @@ interface Props {
   guildId: string;
 }
 
+interface Entry {
+  member: GuildMember;
+  presence?: Presence;
+  /** Highest coloured role, resolved once during grouping. */
+  color?: string;
+}
+
 interface Group {
   role: Role | null;
-  members: { member: GuildMember; presence?: Presence }[];
+  members: Entry[];
 }
 
 const PAGE_SIZE = 60;
@@ -32,7 +37,6 @@ export function MemberList({ guildId }: Props) {
   const guild = useRealtimeStore((s) => s.guilds.get(guildId));
   const membersRaw = useRealtimeStore((s) => s.members.get(guildId));
   const presencesRaw = useRealtimeStore((s) => s.presences.get(guildId));
-  const setMembers = useRealtimeStore((s) => s.setMembers);
   const activeIntents = useRealtimeStore((s) => s.activeIntents);
   const members = useMemo(() => membersRaw ?? [], [membersRaw]);
   const presences = useMemo(() => presencesRaw ?? [], [presencesRaw]);
@@ -42,24 +46,8 @@ export function MemberList({ guildId }: Props) {
   const hasPresences = (activeIntents & INTENTS.GUILD_PRESENCES) !== 0;
   const hasMembersIntent = (activeIntents & INTENTS.GUILD_MEMBERS) !== 0;
 
-  useEffect(() => {
-    let alive = true;
-    if (members.length > 0) return;
-    if (hasMembersIntent) {
-      const gw = getGateway();
-      gw?.requestGuildMembers(guildId, "", 0);
-    } else {
-      (async () => {
-        try {
-          const data: GuildMember[] = await getGuildMembers(guildId, 1000);
-          if (alive && Array.isArray(data)) setMembers(guildId, data);
-        } catch {}
-      })();
-    }
-    return () => {
-      alive = false;
-    };
-  }, [guildId, hasMembersIntent, setMembers, members.length]);
+  // Members are loaded once by ChannelView, which is always this component's
+  // parent. Fetching here too would double every request.
 
   const presenceMap = useMemo(() => {
     const m = new Map<string, Presence>();
@@ -67,34 +55,62 @@ export function MemberList({ guildId }: Props) {
     return m;
   }, [presences]);
 
-  const groups = useMemo<Group[]>(() => {
-    const roles = (guild?.roles ?? [])
+  const { groups, onlineCount } = useMemo(() => {
+    const allRoles = guild?.roles ?? [];
+    const roleById = new Map<string, Role>();
+    allRoles.forEach((r) => roleById.set(r.id, r));
+    const hoistRoles = allRoles
       .filter((r) => r.hoist && r.id !== guildId)
       .sort((a, b) => b.position - a.position);
 
-    const filtered = members.filter((m) => {
-      if (!query) return true;
-      const name = (m.nick ?? m.user?.global_name ?? m.user?.username ?? "").toLowerCase();
-      return name.includes(query.toLowerCase());
-    });
-
+    const needle = query.trim().toLowerCase();
     const groupMap = new Map<string, Group>();
-    roles.forEach((r) => groupMap.set(r.id, { role: r, members: [] }));
+    hoistRoles.forEach((r) => groupMap.set(r.id, { role: r, members: [] }));
     const everyone: Group = { role: null, members: [] };
     const offline: Group = { role: { id: "offline", name: "Offline" } as Role, members: [] };
 
-    filtered.forEach((m) => {
+    let online = 0;
+
+    members.forEach((m) => {
       const p = m.user?.id ? presenceMap.get(m.user.id) : undefined;
       const status = p?.status ?? "offline";
-      const entry = { member: m, presence: p };
+      if (status !== "offline") online++;
 
-      if (hasPresences && status === "offline") {
-        offline.members.push(entry);
-        return;
+      if (needle) {
+        const name = (
+          m.nick ??
+          m.user?.global_name ??
+          m.user?.username ??
+          ""
+        ).toLowerCase();
+        if (!name.includes(needle)) return;
       }
 
-      const hoistRole = roles.find((r) => m.roles.includes(r.id));
-      if (hoistRole) groupMap.get(hoistRole.id)!.members.push(entry);
+      // Walk the member's own roles (usually a handful) rather than scanning
+      // every guild role for every member.
+      let hoist: Role | undefined;
+      let colorRole: Role | undefined;
+      for (const id of m.roles ?? []) {
+        const r = roleById.get(id);
+        if (!r) continue;
+        if (r.hoist && r.id !== guildId && (!hoist || r.position > hoist.position)) {
+          hoist = r;
+        }
+        if (r.color !== 0 && (!colorRole || r.position > colorRole.position)) {
+          colorRole = r;
+        }
+      }
+
+      const entry: Entry = {
+        member: m,
+        presence: p,
+        color: colorRole
+          ? "#" + colorRole.color.toString(16).padStart(6, "0")
+          : undefined,
+      };
+
+      if (hasPresences && status === "offline") offline.members.push(entry);
+      else if (hoist) groupMap.get(hoist.id)?.members.push(entry);
       else everyone.members.push(entry);
     });
 
@@ -120,19 +136,13 @@ export function MemberList({ guildId }: Props) {
       sortMembers(offline);
       result.push(offline);
     }
-    return result;
+    return { groups: result, onlineCount: hasPresences ? online : members.length };
   }, [members, presenceMap, guild?.roles, guildId, query, hasPresences]);
 
   const total = members.length;
-  const onlineCount = hasPresences
-    ? members.filter((m) => {
-        const s = m.user?.id ? presenceMap.get(m.user.id)?.status : undefined;
-        return s && s !== "offline";
-      }).length
-    : total;
 
   const flatMembers = useMemo(() => {
-    const out: { groupKey: string; data: typeof groups[number]["members"][number] | null; header?: typeof groups[number] }[] = [];
+    const out: { groupKey: string; data: Entry | null; header?: Group }[] = [];
     groups.forEach((g) => {
       const key = g.role?.id ?? "everyone";
       out.push({ groupKey: key, data: null, header: g });
@@ -196,14 +206,11 @@ export function MemberList({ guildId }: Props) {
             );
           }
           if (!row.data) return null;
-          const { member, presence } = row.data;
+          const { member, presence, color } = row.data;
           const u = member.user;
           if (!u) return null;
           const name = member.nick ?? u.global_name ?? u.username;
           const status = presence?.status ?? "offline";
-          const colorRole = (guild?.roles ?? [])
-            .filter((r) => member.roles.includes(r.id) && r.color !== 0)
-            .sort((a, b) => b.position - a.position)[0];
           return (
             <UserProfilePopover
               key={`${row.groupKey}-${u.id}-${idx}`}
@@ -225,14 +232,7 @@ export function MemberList({ guildId }: Props) {
                   <span
                     className="text-sm truncate"
                     style={
-                      colorRole
-                        ? {
-                            color: readableRoleColor(
-                              "#" + colorRole.color.toString(16).padStart(6, "0"),
-                              theme,
-                            ),
-                          }
-                        : undefined
+                      color ? { color: readableRoleColor(color, theme) } : undefined
                     }
                   >
                     {name}

@@ -133,11 +133,22 @@ export function MessageInput({
   const canEmbed = hydrated ? can(perms, "Embed Links") : true;
   const slowmode = channels.find((c) => c.id === channelId)?.rate_limit_per_user ?? 0;
 
+  // Object URLs outlive the `files` array: once a message is sent optimistically
+  // its attachments still point at these URLs until the real message lands.
+  // Revoking on every `files` change would break previews mid-compose.
+  const objectUrls = useRef(new Set<string>());
+
+  const revokeUrl = useCallback((url: string) => {
+    if (objectUrls.current.delete(url)) URL.revokeObjectURL(url);
+  }, []);
+
   useEffect(() => {
+    const urls = objectUrls.current;
     return () => {
-      files.forEach((f) => URL.revokeObjectURL(f.url));
+      urls.forEach((u) => URL.revokeObjectURL(u));
+      urls.clear();
     };
-  }, [files]);
+  }, []);
 
   useEffect(() => {
     taRef.current?.focus();
@@ -148,11 +159,11 @@ export function MessageInput({
       toast.error("Bot lacks Attach Files permission");
       return;
     }
-    const next: Attached[] = Array.from(list).map((file) => ({
-      id: nanoid(),
-      file,
-      url: URL.createObjectURL(file),
-    }));
+    const next: Attached[] = Array.from(list).map((file) => {
+      const url = URL.createObjectURL(file);
+      objectUrls.current.add(url);
+      return { id: nanoid(), file, url };
+    });
     setFiles((prev) => [...prev, ...next]);
   }, [canAttach]);
 
@@ -183,7 +194,7 @@ export function MessageInput({
   function removeFile(id: string) {
     setFiles((prev) => {
       const f = prev.find((x) => x.id === id);
-      if (f) URL.revokeObjectURL(f.url);
+      if (f) revokeUrl(f.url);
       return prev.filter((x) => x.id !== id);
     });
   }
@@ -300,6 +311,11 @@ export function MessageInput({
       }));
   }, [trigger, members, remoteMembers, channels, guildRoles, channelMessages, recentAuthorIds]);
 
+  // Read through a ref: the fetch below calls upsertMember, so depending on
+  // members.length directly would re-run this effect and refetch every time.
+  const membersLenRef = useRef(members.length);
+  membersLenRef.current = members.length;
+
   useEffect(() => {
     if (trigger.char !== "@") return;
     let alive = true;
@@ -309,7 +325,7 @@ export function MessageInput({
         if (trigger.query) {
           const r = await searchGuildMembers(serverId, trigger.query, 8);
           if (Array.isArray(r)) fetched = r;
-        } else if (members.length < 25) {
+        } else if (membersLenRef.current < 25) {
           const r = await getGuildMembers(serverId, 25);
           if (Array.isArray(r)) fetched = r;
         }
@@ -326,7 +342,7 @@ export function MessageInput({
       alive = false;
       window.clearTimeout(handle);
     };
-  }, [trigger.char, trigger.query, serverId, upsertMember, members.length]);
+  }, [trigger.char, trigger.query, serverId, upsertMember]);
 
   function closeTrigger() {
     setTrigger({ char: null, start: 0, query: "" });
@@ -424,7 +440,10 @@ export function MessageInput({
       );
       if (!res?.id) throw new Error(res?.message ?? "Send failed");
       replaceMessageStore(channelId, tempId, res);
+      // The real message carries CDN urls now, so the previews are free.
+      snapFiles.forEach((f) => revokeUrl(f.url));
     } catch (e) {
+      // Leave the object urls alive: the failed message still renders them.
       markMessageFailedStore(channelId, tempId);
       toast.error(e instanceof Error ? e.message : "Send failed");
     } finally {

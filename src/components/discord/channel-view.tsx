@@ -70,13 +70,15 @@ export function ChannelView({ serverId, channelId }: Props) {
     };
   }, [channelId, serverId, channel, upsertChannel]);
 
+  // Sole loader of guild members. MemberList reads them from the store and
+  // deliberately does not fetch, since this component is always its parent.
   useEffect(() => {
     if (membersLen > 0) return;
     let alive = true;
     const hasMembersIntent = (activeIntents & INTENTS.GUILD_MEMBERS) !== 0;
-    if (hasMembersIntent) {
-      const gw = getGateway();
-      gw?.requestGuildMembers(serverId, "", 0);
+    // Returns false when the socket is not open yet, in which case fall
+    // through to REST rather than losing the request.
+    if (hasMembersIntent && getGateway()?.requestGuildMembers(serverId, "", 0)) {
       return;
     }
     (async () => {
