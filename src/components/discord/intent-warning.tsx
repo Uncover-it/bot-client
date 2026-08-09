@@ -7,7 +7,8 @@ import { INTENTS } from "@/lib/discord/constants";
 import { cn } from "@/lib/utils";
 
 export function getMissingPrivilegedIntents(active: number) {
-  const missing: { key: "members" | "presence" | "content"; label: string }[] = [];
+  const missing: { key: "members" | "presence" | "content"; label: string }[] =
+    [];
   if (!(active & INTENTS.GUILD_MEMBERS))
     missing.push({ key: "members", label: "Server Members" });
   if (!(active & INTENTS.GUILD_PRESENCES))

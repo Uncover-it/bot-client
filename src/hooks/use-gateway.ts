@@ -101,22 +101,26 @@ export function useGateway(token: string | null) {
       singleton = null;
       started.current = false;
     };
-  }, [token, store]);
+    // `store` is the Zustand hook itself, a stable module-level reference.
+  }, [token]);
 }
 
 function handleDispatch(event: string, data: unknown) {
   const s = useRealtimeStore.getState();
   switch (event) {
     case "READY": {
-      const d = data as { user: { id: string; username: string; avatar?: string | null }; guilds: { id: string; unavailable: boolean }[] };
+      const d = data as {
+        user: { id: string; username: string; avatar?: string | null };
+        guilds: { id: string; unavailable: boolean }[];
+      };
       s.setUser({ ...d.user, discriminator: "0" });
       break;
     }
     case "GUILD_CREATE": {
       const g = data as Guild;
       s.upsertGuild(g);
-      if (g.members && g.members.length) bufferMembers(g.id, g.members);
-      if (g.presences && g.presences.length) bufferPresences(g.id, g.presences);
+      if (g.members?.length) bufferMembers(g.id, g.members);
+      if (g.presences?.length) bufferPresences(g.id, g.presences);
       break;
     }
     case "GUILD_UPDATE": {
@@ -145,7 +149,9 @@ function handleDispatch(event: string, data: unknown) {
     case "GUILD_ROLE_UPDATE": {
       const d = data as { guild_id: string; role: Role };
       const g = useRealtimeStore.getState().guilds.get(d.guild_id);
-      const roles = (g?.roles ?? []).filter((r) => r.id !== d.role.id).concat(d.role);
+      const roles = (g?.roles ?? [])
+        .filter((r) => r.id !== d.role.id)
+        .concat(d.role);
       s.setRoles(d.guild_id, roles);
       break;
     }
@@ -168,9 +174,13 @@ function handleDispatch(event: string, data: unknown) {
       break;
     }
     case "GUILD_MEMBERS_CHUNK": {
-      const d = data as { guild_id: string; members: GuildMember[]; presences?: Presence[] };
+      const d = data as {
+        guild_id: string;
+        members: GuildMember[];
+        presences?: Presence[];
+      };
       if (d.members.length) bufferMembers(d.guild_id, d.members);
-      if (d.presences && d.presences.length) bufferPresences(d.guild_id, d.presences);
+      if (d.presences?.length) bufferPresences(d.guild_id, d.presences);
       break;
     }
     case "PRESENCE_UPDATE": {
@@ -193,7 +203,9 @@ function handleDispatch(event: string, data: unknown) {
     }
     case "MESSAGE_DELETE_BULK": {
       const d = data as { ids: string[]; channel_id: string };
-      d.ids.forEach((id) => s.removeMessage(d.channel_id, id));
+      d.ids.forEach((id) => {
+        s.removeMessage(d.channel_id, id);
+      });
       break;
     }
     case "TYPING_START": {

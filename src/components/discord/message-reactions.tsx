@@ -26,13 +26,21 @@ interface Props {
   reactions?: Reaction[];
 }
 
-function reactionApiKey(emoji: { id?: string | null; name?: string | null }): string | null {
+function reactionApiKey(emoji: {
+  id?: string | null;
+  name?: string | null;
+}): string | null {
   if (emoji.id && emoji.name) return `${emoji.name}:${emoji.id}`;
   if (emoji.name) return emoji.name;
   return null;
 }
 
-export function MessageReactions({ guildId, channelId, messageId, reactions }: Props) {
+export function MessageReactions({
+  guildId,
+  channelId,
+  messageId,
+  reactions,
+}: Props) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const addStore = useRealtimeStore((s) => s.addReaction);
   const removeStore = useRealtimeStore((s) => s.removeReaction);
@@ -51,7 +59,9 @@ export function MessageReactions({ guildId, channelId, messageId, reactions }: P
         await removeReaction(channelId, messageId, key);
       } catch (e) {
         addStore(channelId, messageId, r.emoji, true);
-        toast.error(e instanceof Error ? e.message : "Failed to remove reaction");
+        toast.error(
+          e instanceof Error ? e.message : "Failed to remove reaction",
+        );
       } finally {
         markPending(channelId, messageId, r.emoji, false);
       }

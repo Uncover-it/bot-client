@@ -19,7 +19,10 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { MessageList } from "@/components/discord/message-list";
-import { MessageInput, type ReplyTarget } from "@/components/discord/message-input";
+import {
+  MessageInput,
+  type ReplyTarget,
+} from "@/components/discord/message-input";
 import { MemberList } from "@/components/discord/member-list";
 import { StatusBar } from "@/components/discord/status-bar";
 import { ForumView } from "@/components/discord/forum-view";
@@ -48,7 +51,9 @@ export function ChannelView({ serverId, channelId }: Props) {
 
   const guild = useRealtimeStore((s) => s.guilds.get(serverId));
   const channel = guild?.channels?.find((c) => c.id === channelId);
-  const membersLen = useRealtimeStore((s) => s.members.get(serverId)?.length ?? 0);
+  const membersLen = useRealtimeStore(
+    (s) => s.members.get(serverId)?.length ?? 0,
+  );
   const setMembers = useRealtimeStore((s) => s.setMembers);
   const upsertChannel = useRealtimeStore((s) => s.upsertChannel);
   const activeIntents = useRealtimeStore((s) => s.activeIntents);
@@ -78,7 +83,10 @@ export function ChannelView({ serverId, channelId }: Props) {
     const hasMembersIntent = (activeIntents & INTENTS.GUILD_MEMBERS) !== 0;
     // Returns false when the socket is not open yet, in which case fall
     // through to REST rather than losing the request.
-    if (hasMembersIntent && getGateway()?.requestGuildMembers(serverId, "", 0)) {
+    if (
+      hasMembersIntent &&
+      getGateway()?.requestGuildMembers(serverId, "", 0)
+    ) {
       return;
     }
     (async () => {
@@ -137,7 +145,9 @@ export function ChannelView({ serverId, channelId }: Props) {
           </span>
           {channel?.topic && (
             <>
-              <span className="text-muted-foreground hidden md:inline shrink-0">|</span>
+              <span className="text-muted-foreground hidden md:inline shrink-0">
+                |
+              </span>
               <span
                 className="text-sm text-muted-foreground truncate whitespace-nowrap hidden md:inline min-w-0 flex-1"
                 title={channel.topic}
@@ -193,7 +203,9 @@ export function ChannelView({ serverId, channelId }: Props) {
             </footer>
           </>
         )}
-        {isForum && channel && <ForumView guildId={serverId} channel={channel} />}
+        {isForum && channel && (
+          <ForumView guildId={serverId} channel={channel} />
+        )}
         {isVoice && channel && <VoiceView channel={channel} />}
       </main>
       {!isMobile && showMembers && <MemberList guildId={serverId} />}

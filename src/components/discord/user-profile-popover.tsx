@@ -92,7 +92,9 @@ function subscribeNow(cb: () => void): () => void {
   if (!nowInterval) {
     nowInterval = setInterval(() => {
       cachedNow = Date.now();
-      nowListeners.forEach((l) => l());
+      nowListeners.forEach((l) => {
+        l();
+      });
     }, 30000);
   }
   return () => {
@@ -171,7 +173,7 @@ export function UserProfilePopover({ guildId, userId, trigger }: Props) {
 
   const colorRole = assignedRoles.find((r) => r.color !== 0);
   const accent = colorRole
-    ? "#" + colorRole.color.toString(16).padStart(6, "0")
+    ? `#${colorRole.color.toString(16).padStart(6, "0")}`
     : undefined;
 
   useEffect(() => {
@@ -242,9 +244,7 @@ export function UserProfilePopover({ guildId, userId, trigger }: Props) {
   function dropRole(roleId: string) {
     if (!canRoles) return;
     const p = async () => {
-      const res = await removeMemberRole(guildId, userId, roleId);
-      if ("message" in (res ?? {}) && (res as { message?: string }).message)
-        throw new Error((res as { message: string }).message);
+      await removeMemberRole(guildId, userId, roleId);
       if (member)
         upsertMember(guildId, {
           ...member,
@@ -261,9 +261,7 @@ export function UserProfilePopover({ guildId, userId, trigger }: Props) {
   function pickRole(roleId: string) {
     if (!canRoles) return;
     const p = async () => {
-      const res = await addMemberRole(guildId, userId, roleId);
-      if ("message" in (res ?? {}) && (res as { message?: string }).message)
-        throw new Error((res as { message: string }).message);
+      await addMemberRole(guildId, userId, roleId);
       if (member)
         upsertMember(guildId, { ...member, roles: [...memberRoles, roleId] });
     };
@@ -293,7 +291,7 @@ export function UserProfilePopover({ guildId, userId, trigger }: Props) {
             const fallbackBg = (() => {
               if (profile?.banner_color) return profile.banner_color;
               if (typeof profile?.accent_color === "number") {
-                return "#" + profile.accent_color.toString(16).padStart(6, "0");
+                return `#${profile.accent_color.toString(16).padStart(6, "0")}`;
               }
               if (accent) return accent;
               return "linear-gradient(135deg, #4f46e5, #06b6d4)";
@@ -379,6 +377,7 @@ export function UserProfilePopover({ guildId, userId, trigger }: Props) {
             {presence?.activities && presence.activities.length > 0 && (
               <div className="mt-2 space-y-1.5">
                 {presence.activities.map((act, i) => (
+                  // biome-ignore lint/suspicious/noArrayIndexKey: activities have no stable id and the array is replaced whole on every PRESENCE_UPDATE
                   <ActivityCard key={i} activity={act} />
                 ))}
               </div>
@@ -403,7 +402,10 @@ export function UserProfilePopover({ guildId, userId, trigger }: Props) {
                     onOpenChange={setRolePickerOpen}
                   >
                     <DropdownMenuTrigger asChild>
-                      <button className="size-5 grid place-items-center rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
+                      <button
+                        type="button"
+                        className="size-5 grid place-items-center rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                      >
                         <Plus className="size-3" />
                       </button>
                     </DropdownMenuTrigger>
@@ -430,7 +432,7 @@ export function UserProfilePopover({ guildId, userId, trigger }: Props) {
                               className="size-2 rounded-full"
                               style={{
                                 background: r.color
-                                  ? "#" + r.color.toString(16).padStart(6, "0")
+                                  ? `#${r.color.toString(16).padStart(6, "0")}`
                                   : "#888",
                               }}
                             />
@@ -451,7 +453,7 @@ export function UserProfilePopover({ guildId, userId, trigger }: Props) {
                 )}
                 {assignedRoles.slice(0, 12).map((r) => {
                   const rawHex = r.color
-                    ? "#" + r.color.toString(16).padStart(6, "0")
+                    ? `#${r.color.toString(16).padStart(6, "0")}`
                     : undefined;
                   const textHex = readableRoleColor(rawHex, theme);
                   return (
@@ -472,6 +474,7 @@ export function UserProfilePopover({ guildId, userId, trigger }: Props) {
                       {r.name}
                       {canRoles && !r.managed && (
                         <button
+                          type="button"
                           onClick={() => dropRole(r.id)}
                           className="hover:bg-muted rounded-sm -mr-0.5"
                           aria-label={`Remove ${r.name}`}

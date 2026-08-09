@@ -5,7 +5,11 @@ import { CornerUpRight, Pin, AlertCircle } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { DiscordAvatar } from "@/components/ui/discord-avatar";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { MessageContent } from "@/components/discord/message-content";
 import { MessageEmbed } from "@/components/discord/message-embed";
 import { MessageAttachment } from "@/components/discord/message-attachment";
@@ -13,7 +17,13 @@ import { MessageReactions } from "@/components/discord/message-reactions";
 import { avatarUrl, memberAvatarUrl, stickerUrl } from "@/lib/discord/cdn";
 import { readableRoleColor } from "@/lib/discord/role-color";
 import { useResolvedTheme } from "@/hooks/use-resolved-theme";
-import type { Guild, GuildMember, Message, Presence, Role } from "@/lib/discord/types";
+import type {
+  Guild,
+  GuildMember,
+  Message,
+  Presence,
+  Role,
+} from "@/lib/discord/types";
 
 interface Props {
   message: Message;
@@ -45,14 +55,20 @@ function timeFmt(d: string): string {
   const yesterday = new Date(now);
   yesterday.setDate(yesterday.getDate() - 1);
   const isYesterday = date.toDateString() === yesterday.toDateString();
-  const time = date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  const time = date.toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+  });
   if (isToday) return `Today at ${time}`;
   if (isYesterday) return `Yesterday at ${time}`;
   return date.toLocaleString();
 }
 
 function shortTime(d: string): string {
-  return new Date(d).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  return new Date(d).toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }
 
 // Last known colour per guild member, used only as a fallback while role data
@@ -88,7 +104,7 @@ function authorColor(
   if (!top) {
     return cacheKey ? colorCache.get(cacheKey) : undefined;
   }
-  const hex = "#" + top.color.toString(16).padStart(6, "0");
+  const hex = `#${top.color.toString(16).padStart(6, "0")}`;
   if (cacheKey) rememberColor(cacheKey, hex);
   return hex;
 }
@@ -211,179 +227,189 @@ export const MessageItem = memo(function MessageItem({
         </div>
 
         <div className="flex-1 min-w-0">
-        {!grouped && (
-          <div className="flex items-baseline gap-2 leading-tight flex-wrap">
-            {nameWrapper ? (
-              nameWrapper(
-                message,
-                <button
-                  className="font-semibold text-sm hover:underline cursor-pointer"
+          {!grouped && (
+            <div className="flex items-baseline gap-2 leading-tight flex-wrap">
+              {nameWrapper ? (
+                nameWrapper(
+                  message,
+                  <button
+                    type="button"
+                    className="font-semibold text-sm hover:underline cursor-pointer"
+                    style={color ? { color } : undefined}
+                  >
+                    {displayName}
+                  </button>,
+                )
+              ) : (
+                <span
+                  className="font-semibold text-sm"
                   style={color ? { color } : undefined}
                 >
                   {displayName}
-                </button>,
-              )
-            ) : (
-              <span className="font-semibold text-sm" style={color ? { color } : undefined}>
-                {displayName}
-              </span>
-            )}
-            {message.author.bot && (
-              <span className="px-1 py-0.5 rounded bg-blue-500 text-white text-[9px] font-bold uppercase">
-                Bot
-              </span>
-            )}
-            {isPostStarter && (
-              <span className="px-1 py-0.5 rounded bg-primary text-primary-foreground text-[9px] font-bold uppercase tracking-wider">
-                OP
-              </span>
-            )}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="text-xs text-muted-foreground cursor-default">
-                  {timeFmt(message.timestamp)}
                 </span>
-              </TooltipTrigger>
-              <TooltipContent>{new Date(message.timestamp).toLocaleString()}</TooltipContent>
-            </Tooltip>
-            {message.pinned && (
+              )}
+              {message.author.bot && (
+                <span className="px-1 py-0.5 rounded bg-blue-500 text-white text-[9px] font-bold uppercase">
+                  Bot
+                </span>
+              )}
+              {isPostStarter && (
+                <span className="px-1 py-0.5 rounded bg-primary text-primary-foreground text-[9px] font-bold uppercase tracking-wider">
+                  OP
+                </span>
+              )}
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Pin className="size-3 text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground cursor-default">
+                    {timeFmt(message.timestamp)}
+                  </span>
                 </TooltipTrigger>
-                <TooltipContent>Pinned</TooltipContent>
+                <TooltipContent>
+                  {new Date(message.timestamp).toLocaleString()}
+                </TooltipContent>
               </Tooltip>
-            )}
-          </div>
-        )}
-
-        <div
-          className={cn(
-            "text-sm leading-snug",
-            message.__pending && !editing && "text-muted-foreground",
-          )}
-        >
-          {editing ? (
-            <div className="space-y-1">
-              <Textarea
-                key={`edit-${message.id}`}
-                ref={editRef}
-                defaultValue={message.content ?? ""}
-                onKeyDown={(e) => {
-                  if (
-                    e.key === "Enter" &&
-                    !e.shiftKey &&
-                    !e.nativeEvent.isComposing
-                  ) {
-                    e.preventDefault();
-                    onEditSave?.(message, e.currentTarget.value);
-                  }
-                  if (e.key === "Escape") {
-                    e.preventDefault();
-                    onEditCancel?.();
-                  }
-                }}
-                className="resize-none min-h-10 max-h-48 field-sizing-content text-sm"
-              />
-              <div className="text-[10px] text-muted-foreground font-mono flex items-center gap-2">
-                <span>
-                  <kbd>esc</kbd> cancel
-                </span>
-                <span>
-                  <kbd>↵</kbd> save
-                </span>
-                <button
-                  type="button"
-                  onClick={() => onEditCancel?.()}
-                  className="ml-auto text-muted-foreground hover:text-foreground"
-                >
-                  cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onEditSave?.(message, editRef.current?.value ?? "")}
-                  className="text-primary hover:underline font-medium"
-                >
-                  save
-                </button>
-              </div>
+              {message.pinned && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Pin className="size-3 text-muted-foreground" />
+                  </TooltipTrigger>
+                  <TooltipContent>Pinned</TooltipContent>
+                </Tooltip>
+              )}
             </div>
-          ) : (
-            <span className="[&_p:last-child]:inline">
-              {message.content && (
-                <MessageContent
-                  message={message}
-                  guild={guild}
-                  selfUserId={selfUserId}
-                />
-              )}
-              {message.edited_timestamp && !message.__pending && !message.__failed && (
-                <span className="text-[10px] text-muted-foreground ml-1 align-baseline">
-                  (edited)
-                </span>
-              )}
-              {message.__failed && (
-                <span className="text-[10px] text-destructive ml-1 inline-flex items-center gap-1 align-baseline">
-                  <AlertCircle className="size-3" /> failed
-                </span>
-              )}
-            </span>
           )}
-        </div>
 
-        {message.attachments?.length > 0 && (
-          <div className="mt-1 space-y-2">
-            {message.attachments.map((a) => (
-              <MessageAttachment key={a.id} a={a} />
-            ))}
-          </div>
-        )}
-
-        {message.embeds?.length > 0 && (
-          <div className="mt-1 space-y-2">
-            {message.embeds.map((e, i) => (
-              <MessageEmbed key={i} embed={e} />
-            ))}
-          </div>
-        )}
-        {message.sticker_items && message.sticker_items.length > 0 && (
-          <div className="mt-1 flex flex-wrap gap-2">
-            {message.sticker_items.map((s) =>
-              s.format_type === 3 ? (
-                <div
-                  key={s.id}
-                  className="px-2 py-1 rounded bg-muted text-xs text-muted-foreground"
-                  title={s.name}
-                >
-                  Sticker: {s.name}
-                </div>
-              ) : (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img
-                  key={s.id}
-                  src={stickerUrl(s.id, s.format_type, 160)}
-                  alt={s.name}
-                  title={s.name}
-                  width={160}
-                  height={160}
-                  className="rounded"
-                  draggable={false}
+          <div
+            className={cn(
+              "text-sm leading-snug",
+              message.__pending && !editing && "text-muted-foreground",
+            )}
+          >
+            {editing ? (
+              <div className="space-y-1">
+                <Textarea
+                  key={`edit-${message.id}`}
+                  ref={editRef}
+                  defaultValue={message.content ?? ""}
+                  onKeyDown={(e) => {
+                    if (
+                      e.key === "Enter" &&
+                      !e.shiftKey &&
+                      !e.nativeEvent.isComposing
+                    ) {
+                      e.preventDefault();
+                      onEditSave?.(message, e.currentTarget.value);
+                    }
+                    if (e.key === "Escape") {
+                      e.preventDefault();
+                      onEditCancel?.();
+                    }
+                  }}
+                  className="resize-none min-h-10 max-h-48 field-sizing-content text-sm"
                 />
-              ),
+                <div className="text-[10px] text-muted-foreground font-mono flex items-center gap-2">
+                  <span>
+                    <kbd>esc</kbd> cancel
+                  </span>
+                  <span>
+                    <kbd>↵</kbd> save
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => onEditCancel?.()}
+                    className="ml-auto text-muted-foreground hover:text-foreground"
+                  >
+                    cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      onEditSave?.(message, editRef.current?.value ?? "")
+                    }
+                    className="text-primary hover:underline font-medium"
+                  >
+                    save
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <span className="[&_p:last-child]:inline">
+                {message.content && (
+                  <MessageContent
+                    message={message}
+                    guild={guild}
+                    selfUserId={selfUserId}
+                  />
+                )}
+                {message.edited_timestamp &&
+                  !message.__pending &&
+                  !message.__failed && (
+                    <span className="text-[10px] text-muted-foreground ml-1 align-baseline">
+                      (edited)
+                    </span>
+                  )}
+                {message.__failed && (
+                  <span className="text-[10px] text-destructive ml-1 inline-flex items-center gap-1 align-baseline">
+                    <AlertCircle className="size-3" /> failed
+                  </span>
+                )}
+              </span>
             )}
           </div>
-        )}
-        {guildId && message.reactions && message.reactions.length > 0 && (
-          <MessageReactions
-            guildId={guildId}
-            channelId={message.channel_id}
-            messageId={message.id}
-            reactions={message.reactions}
-          />
-        )}
+
+          {message.attachments?.length > 0 && (
+            <div className="mt-1 space-y-2">
+              {message.attachments.map((a) => (
+                <MessageAttachment key={a.id} a={a} />
+              ))}
+            </div>
+          )}
+
+          {message.embeds?.length > 0 && (
+            <div className="mt-1 space-y-2">
+              {message.embeds.map((e, i) => (
+                // biome-ignore lint/suspicious/noArrayIndexKey: embeds carry no id and Discord replaces the whole array on edit
+                <MessageEmbed key={i} embed={e} />
+              ))}
+            </div>
+          )}
+          {message.sticker_items && message.sticker_items.length > 0 && (
+            <div className="mt-1 flex flex-wrap gap-2">
+              {message.sticker_items.map((s) =>
+                s.format_type === 3 ? (
+                  <div
+                    key={s.id}
+                    className="px-2 py-1 rounded bg-muted text-xs text-muted-foreground"
+                    title={s.name}
+                  >
+                    Sticker: {s.name}
+                  </div>
+                ) : (
+                  <img
+                    key={s.id}
+                    src={stickerUrl(s.id, s.format_type, 160)}
+                    alt={s.name}
+                    title={s.name}
+                    width={160}
+                    height={160}
+                    className="rounded"
+                    draggable={false}
+                  />
+                ),
+              )}
+            </div>
+          )}
+          {guildId && message.reactions && message.reactions.length > 0 && (
+            <MessageReactions
+              guildId={guildId}
+              channelId={message.channel_id}
+              messageId={message.id}
+              reactions={message.reactions}
+            />
+          )}
         </div>
       </div>
     </div>
   );
-  return rowContextMenu ? <>{rowContextMenu(message, body)}</> : body;
+  return rowContextMenu ? rowContextMenu(message, body) : body;
 });

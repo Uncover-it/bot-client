@@ -44,11 +44,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import {
-  Dialog,
-  DialogContent,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -75,6 +71,8 @@ import { ChannelSettingsDialog } from "@/components/discord/channel-settings-dia
 import { avatarUrl, guildIconUrl } from "@/lib/discord/cdn";
 import type { Channel, Guild } from "@/lib/discord/types";
 
+const SKELETON_ROWS = ["s1", "s2", "s3", "s4", "s5"];
+
 export function AppSidebar() {
   const guildsMap = useRealtimeStore((s) => s.guilds);
   const user = useRealtimeStore((s) => s.user);
@@ -87,7 +85,9 @@ export function AppSidebar() {
       try {
         const data = await getServers();
         if (!alive || !Array.isArray(data)) return;
-        data.forEach((g) => upsertGuild(g));
+        data.forEach((g) => {
+          upsertGuild(g);
+        });
       } catch {}
     })();
     return () => {
@@ -102,7 +102,11 @@ export function AppSidebar() {
           <SidebarMenuItem>
             <div className="flex w-full items-center gap-2 overflow-hidden rounded-md p-2">
               <div className="flex aspect-square size-8 items-center justify-center rounded-lg">
-                <Image src={Logo} alt="logo" style={{ width: 25, height: 25 }} />
+                <Image
+                  src={Logo}
+                  alt="logo"
+                  style={{ width: 25, height: 25 }}
+                />
               </div>
               <div className="grid text-left text-sm leading-tight">
                 <span className="truncate font-medium">Discord Bot Client</span>
@@ -118,8 +122,8 @@ export function AppSidebar() {
       <SidebarContent className="pt-1">
         {guilds.length === 0 ? (
           <SidebarMenu>
-            {Array.from({ length: 5 }).map((_, i) => (
-              <SidebarMenuItem key={i}>
+            {SKELETON_ROWS.map((id) => (
+              <SidebarMenuItem key={id}>
                 <SidebarMenuSkeleton />
               </SidebarMenuItem>
             ))}
@@ -139,9 +143,14 @@ export function AppSidebar() {
             <Dialog>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <SidebarMenuButton size="lg" className="data-[state=open]:bg-sidebar-accent">
+                  <SidebarMenuButton
+                    size="lg"
+                    className="data-[state=open]:bg-sidebar-accent"
+                  >
                     <Image
-                      src={user ? avatarUrl(user.id, user.avatar) : "/discord.svg"}
+                      src={
+                        user ? avatarUrl(user.id, user.avatar) : "/discord.svg"
+                      }
                       alt={user?.username ?? "bot"}
                       width={32}
                       height={32}
@@ -149,8 +158,12 @@ export function AppSidebar() {
                       className="rounded-lg"
                     />
                     <div className="grid flex-1 text-left text-sm leading-tight">
-                      <span className="truncate font-medium">{user?.username ?? "…"}</span>
-                      <span className="text-muted-foreground truncate text-xs">{user?.id}</span>
+                      <span className="truncate font-medium">
+                        {user?.username ?? "…"}
+                      </span>
+                      <span className="text-muted-foreground truncate text-xs">
+                        {user?.id}
+                      </span>
                     </div>
                     <EllipsisVertical className="ml-auto size-4" />
                   </SidebarMenuButton>
@@ -171,7 +184,10 @@ export function AppSidebar() {
                   <DropdownMenuSeparator />
                   <DropdownMenuItem variant="destructive" asChild>
                     <form action={logout}>
-                      <button className="flex w-full items-center gap-2">
+                      <button
+                        type="submit"
+                        className="flex w-full items-center gap-2"
+                      >
                         <LogOut className="text-destructive" />
                         Log out
                       </button>
@@ -192,7 +208,10 @@ export function AppSidebar() {
 }
 
 function ServerItem({ guild }: { guild: Guild }) {
-  const icon = useMemo(() => guildIconUrl(guild.id, guild.icon), [guild.id, guild.icon]);
+  const icon = useMemo(
+    () => guildIconUrl(guild.id, guild.icon),
+    [guild.id, guild.icon],
+  );
   // Resolved once per guild rather than once per channel row.
   const perms = useGuildPermissions(guild.id);
   const canManageChannels = can(perms, "Manage Channels");
@@ -260,7 +279,9 @@ function ServerItem({ guild }: { guild: Guild }) {
                     {guild.name.charAt(0).toUpperCase()}
                   </div>
                 )}
-                <span className="text-md ml-1 flex font-medium truncate">{guild.name}</span>
+                <span className="text-md ml-1 flex font-medium truncate">
+                  {guild.name}
+                </span>
                 <ChevronRight className="ml-auto transition-transform group-data-[state=open]/collapsible:rotate-90" />
               </SidebarMenuButton>
             </CollapsibleTrigger>
@@ -281,7 +302,9 @@ function ServerItem({ guild }: { guild: Guild }) {
                 </ContextMenuSubTrigger>
                 <ContextMenuSubContent className="bg-sidebar">
                   {enabledPerms.length ? (
-                    enabledPerms.map((p) => <ContextMenuItem key={p}>{p}</ContextMenuItem>)
+                    enabledPerms.map((p) => (
+                      <ContextMenuItem key={p}>{p}</ContextMenuItem>
+                    ))
                   ) : (
                     <ContextMenuItem disabled>None</ContextMenuItem>
                   )}
@@ -291,7 +314,10 @@ function ServerItem({ guild }: { guild: Guild }) {
             <ContextMenuSeparator />
             <ContextMenuGroup>
               <CopyID id={guild.id} />
-              <Link href={`https://id.uncoverit.org?id=${guild.id}`} target="_blank">
+              <Link
+                href={`https://id.uncoverit.org?id=${guild.id}`}
+                target="_blank"
+              >
                 <ContextMenuItem>
                   <ExternalLink />
                   Lookup ID

@@ -83,8 +83,14 @@ export const Markdown = memo(function Markdown({ children, className }: Props) {
           return "";
         }}
         components={{
-          a: ({ href, children: c }: { href?: string; children?: ReactNode }) => {
-            if (href && href.startsWith("dc:")) {
+          a: ({
+            href,
+            children: c,
+          }: {
+            href?: string;
+            children?: ReactNode;
+          }) => {
+            if (href?.startsWith("dc:")) {
               return <MentionPill href={href}>{c}</MentionPill>;
             }
             return (
@@ -105,7 +111,6 @@ export const Markdown = memo(function Markdown({ children, className }: Props) {
               const animated = new URLSearchParams(q).get("a") === "1";
               const ext = animated ? "gif" : "png";
               return (
-                // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={`https://cdn.discordapp.com/emojis/${id}.${ext}`}
                   alt={alt ?? ""}

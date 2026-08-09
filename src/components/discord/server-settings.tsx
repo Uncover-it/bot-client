@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRealtimeStore } from "@/lib/store";
 import {
   createChannel,
@@ -164,6 +164,7 @@ function SettingsTab({
 }) {
   return (
     <button
+      type="button"
       onClick={() => onClick(id)}
       className={`whitespace-nowrap text-left text-sm px-3 py-2 rounded-md transition-colors ${
         current === id
@@ -327,8 +328,7 @@ function ChannelsPane({ guildId }: { guildId: string }) {
     if (!canManage) return;
     if (!confirm("Delete this channel?")) return;
     const p = async () => {
-      const res = await deleteChannel(id);
-      if (res?.message) throw new Error(res.message);
+      await deleteChannel(id);
       removeChannel(id, guildId);
     };
     toast.promise(p(), {
@@ -491,8 +491,7 @@ function RolesPane({ guildId }: { guildId: string }) {
     if (!canManage) return;
     if (!confirm(`Delete role "${role.name}"?`)) return;
     const p = async () => {
-      const res = await deleteRole(guildId, role.id);
-      if (res?.message) throw new Error(res.message);
+      await deleteRole(guildId, role.id);
       setRoles(
         guildId,
         (guild?.roles ?? []).filter((r) => r.id !== role.id),
@@ -530,7 +529,7 @@ function RolesPane({ guildId }: { guildId: string }) {
               className="size-3 rounded-full ring-1 ring-border shrink-0"
               style={{
                 background: r.color
-                  ? "#" + r.color.toString(16).padStart(6, "0")
+                  ? `#${r.color.toString(16).padStart(6, "0")}`
                   : "var(--muted-foreground)",
               }}
             />
@@ -628,9 +627,7 @@ function BansPane({ guildId }: { guildId: string }) {
     if (!canBan) return;
     if (!confirm(`Unban ${b.user.username}?`)) return;
     const p = async () => {
-      const res = await unban(guildId, b.user.id);
-      if ("message" in (res ?? {}) && (res as { message?: string }).message)
-        throw new Error((res as { message: string }).message);
+      await unban(guildId, b.user.id);
       setBans((cur) => (cur ?? []).filter((x) => x.user.id !== b.user.id));
     };
     toast.promise(p(), {
@@ -860,39 +857,43 @@ function AuditPane({ guildId }: { guildId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [actionFilter, setActionFilter] = useState<string>("all");
 
-  async function load(before?: string) {
-    if (!canView) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const res = await getAuditLog(guildId, {
-        limit: 50,
-        before,
-        actionType: actionFilter === "all" ? undefined : Number(actionFilter),
-      });
-      if ("error" in res) throw new Error(res.error);
-      const newEntries: AuditEntry[] = res.audit_log_entries ?? [];
-      const newUsers: AuditUser[] = res.users ?? [];
-      setUsers((cur) => {
-        const next = new Map(cur);
-        newUsers.forEach((u) => next.set(u.id, u));
-        return next;
-      });
-      setEntries((cur) => (before ? [...cur, ...newEntries] : newEntries));
-      if (newEntries.length < 50) setExhausted(true);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load audit log");
-    } finally {
-      setBusy(false);
-    }
-  }
+  const load = useCallback(
+    async (before?: string) => {
+      if (!canView) return;
+      setBusy(true);
+      setError(null);
+      try {
+        const res = await getAuditLog(guildId, {
+          limit: 50,
+          before,
+          actionType: actionFilter === "all" ? undefined : Number(actionFilter),
+        });
+        if ("error" in res) throw new Error(res.error);
+        const newEntries: AuditEntry[] = res.audit_log_entries ?? [];
+        const newUsers: AuditUser[] = res.users ?? [];
+        setUsers((cur) => {
+          const next = new Map(cur);
+          newUsers.forEach((u) => {
+            next.set(u.id, u);
+          });
+          return next;
+        });
+        setEntries((cur) => (before ? [...cur, ...newEntries] : newEntries));
+        if (newEntries.length < 50) setExhausted(true);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Failed to load audit log");
+      } finally {
+        setBusy(false);
+      }
+    },
+    [guildId, canView, actionFilter],
+  );
 
   useEffect(() => {
     setEntries([]);
     setExhausted(false);
-    if (canView) load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [guildId, canView, actionFilter]);
+    load();
+  }, [load]);
 
   const oldestId = entries[entries.length - 1]?.id;
 
@@ -982,7 +983,7 @@ function AuditPane({ guildId }: { guildId: string }) {
                   )}
                   {e.changes && e.changes.length > 0 && (
                     <ul className="mt-1 space-y-0.5">
-                      {e.changes.slice(0, 6).map((c, i) => {
+                      {e.changes.slice(0, 6).map((c) => {
                         const isAddRemove =
                           c.key === "$add" || c.key === "$remove";
                         const oldVal =
@@ -995,7 +996,7 @@ function AuditPane({ guildId }: { guildId: string }) {
                             : null;
                         return (
                           <li
-                            key={i}
+                            key={c.key}
                             className="text-xs font-mono text-muted-foreground break-words"
                           >
                             <span className="text-foreground/80">

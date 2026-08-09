@@ -4,7 +4,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Spinner from "../ui/spinner";
 import { ChevronDown } from "lucide-react";
 import { toast } from "sonner";
-import { useChannelPermissions } from "@/hooks/use-permissions";
+import {
+  useChannelPermissions,
+  useGuildPermissions,
+} from "@/hooks/use-permissions";
 import { can } from "@/lib/discord/permissions";
 import {
   ContextMenu,
@@ -71,6 +74,13 @@ import type { ReplyTarget } from "@/components/discord/message-input";
 import { DiscordAvatar } from "@/components/ui/discord-avatar";
 import { avatarUrl } from "@/lib/discord/cdn";
 
+// An optimistic message carries a client-generated id until Discord echoes the
+// real one back, and a failed send keeps that fake id for good. Any REST call
+// keyed on it would 404, so gate id-based actions on this.
+function isSent(msg: Message): boolean {
+  return !msg.__pending && !msg.__failed;
+}
+
 interface Props {
   channelId: string;
   serverId: string;
@@ -97,8 +107,16 @@ export function MessageList({
   const addReactionStore = useRealtimeStore((s) => s.addReaction);
   const removeReactionStore = useRealtimeStore((s) => s.removeReaction);
   const markReactionPending = useRealtimeStore((s) => s.markReactionPending);
+  const removeMessageStore = useRealtimeStore((s) => s.removeMessage);
   const perms = useChannelPermissions(serverId, channelId);
   const canManageMessages = can(perms, "Manage Messages");
+  const canReact = can(perms, "Add Reactions");
+  // Moderation is guild-scoped, not channel-scoped, so it does not read from
+  // the channel-resolved perms above.
+  const guildPerms = useGuildPermissions(serverId);
+  const canKick = can(guildPerms, "Kick Members");
+  const canBan = can(guildPerms, "Ban Members");
+  const canTimeout = can(guildPerms, "Moderate Members");
   const guild = useMemo(
     () => ({ id: serverId, name: "", features: [], roles, channels }),
     [serverId, roles, channels],
@@ -183,7 +201,9 @@ export function MessageList({
         setMessages(channelId, fresh);
       } catch (e) {
         if (alive) {
-          toast.error(e instanceof Error ? e.message : "Failed to load messages");
+          toast.error(
+            e instanceof Error ? e.message : "Failed to load messages",
+          );
         }
       } finally {
         if (alive) setHydrating(false);
@@ -194,6 +214,9 @@ export function MessageList({
     };
   }, [channelId, setMessages, openChannel]);
 
+  // `messages` is the trigger: this re-pins the viewport to the bottom whenever
+  // the list grows, it just does not read the array itself.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: deliberate re-run trigger
   useEffect(() => {
     const el = scrollRef.current;
     if (!el || hydrating) return;
@@ -285,7 +308,9 @@ export function MessageList({
       // Not exhausted, just failed. Back off instead of showing "beginning of
       // channel", so a transient error does not look like the end of history.
       olderRetryAt.current = Date.now() + 5000;
-      toast.error(e instanceof Error ? e.message : "Failed to load older messages");
+      toast.error(
+        e instanceof Error ? e.message : "Failed to load older messages",
+      );
     } finally {
       setLoadingOlder(false);
     }
@@ -302,123 +327,220 @@ export function MessageList({
         if (res.message) throw new Error(res.message);
       };
       toast.promise(p(), {
-        loading: "Setting timeout",
-        success: "Timeout set",
+        loading: minutes == null ? "Removing timeout" : "Setting timeout",
+        success: minutes == null ? "Timeout removed" : "Timeout set",
         error: (e) => `Error: ${e.message}`,
       });
     },
     [serverId],
   );
 
+  const kickMember = useCallback(
+    (userId: string) => {
+      if (!canKick) {
+        toast.error("Bot lacks Kick Members permission");
+        return;
+      }
+      toast.promise(kick(serverId, userId), {
+        loading: "Kicking",
+        success: "Kicked",
+        error: (e) => `Error: ${e.message}`,
+      });
+    },
+    [serverId, canKick],
+  );
+
+  const banMember = useCallback(
+    (userId: string) => {
+      if (!canBan) {
+        toast.error("Bot lacks Ban Members permission");
+        return;
+      }
+      toast.promise(ban(serverId, userId), {
+        loading: "Banning",
+        success: "Banned",
+        error: (e) => `Error: ${e.message}`,
+      });
+    },
+    [serverId, canBan],
+  );
+
+  // Pinning is Manage Messages, same as deleting someone else's message. The
+  // call sites hide the control when the bot lacks it, but re-check here so a
+  // stale render cannot fire a request that is guaranteed to 403.
+  const togglePin = useCallback(
+    (msg: Message) => {
+      if (!canManageMessages) {
+        toast.error("Bot lacks Manage Messages permission");
+        return;
+      }
+      if (!isSent(msg)) {
+        toast.error("Message has not been sent yet");
+        return;
+      }
+      const p = async () => {
+        if (!msg.pinned) await pinMessage(channelId, msg.id);
+        else await unpinMessage(channelId, msg.id);
+      };
+      toast.promise(p(), {
+        loading: msg.pinned ? "Unpinning" : "Pinning",
+        success: msg.pinned ? "Unpinned" : "Pinned",
+        error: (e) => `Error: ${e.message}`,
+      });
+    },
+    [channelId, canManageMessages],
+  );
+
+  const deleteMsg = useCallback(
+    (msg: Message) => {
+      // A failed send never reached Discord, so there is nothing to delete
+      // server-side and its fake id would only 404. Dismissing it locally is
+      // the only way to clear it from the list.
+      if (msg.__failed) {
+        removeMessageStore(channelId, msg.id);
+        return;
+      }
+      // Still in flight: the id is not real yet either, and the send cannot be
+      // recalled. Callers hide the control, so this is just a backstop.
+      if (msg.__pending) return;
+      if (msg.author.id !== botUserId && !canManageMessages) {
+        toast.error("Bot lacks Manage Messages permission");
+        return;
+      }
+      toast.promise(deleteMessage(channelId, msg.id), {
+        loading: "Deleting",
+        success: "Deleted",
+        error: (e) => `Error: ${e.message}`,
+      });
+    },
+    [channelId, canManageMessages, botUserId, removeMessageStore],
+  );
+
   const renderHoverToolbar = useCallback(
     (msg: Message) => {
       const isMine = msg.author.id === botUserId;
       return (
-      <>
-        <Popover>
-          <PopoverTrigger asChild>
-            <button
-              className="size-8 md:size-6 grid place-items-center rounded hover:bg-muted text-muted-foreground hover:text-foreground"
-              title="Add reaction"
-              aria-label="Add reaction"
-            >
-              <SmilePlus className="size-4 md:size-3" />
-            </button>
-          </PopoverTrigger>
-          <PopoverContent className="w-fit p-0" align="end">
-            <EmojiPickerPro
-              guildId={serverId}
-              onSelect={async (token) => {
-                const m = token.match(/^<(a)?:([\w~]+):(\d+)>$/);
-                const key = m ? `${m[2]}:${m[3]}` : token;
-                const emoji = m
-                  ? { id: m[3], name: m[2], animated: !!m[1] }
-                  : { id: null, name: token };
-                addReactionStore(channelId, msg.id, emoji, true);
-                markReactionPending(channelId, msg.id, emoji, true);
-                try {
-                  await addReaction(channelId, msg.id, key);
-                } catch (e) {
-                  removeReactionStore(channelId, msg.id, emoji, true);
-                  toast.error(
-                    e instanceof Error ? e.message : "Failed to add reaction",
-                  );
-                } finally {
-                  markReactionPending(channelId, msg.id, emoji, false);
-                }
-              }}
-            />
-          </PopoverContent>
-        </Popover>
-        <button
-          onClick={() =>
-            onReply({
-              id: msg.id,
-              author: msg.author.global_name ?? msg.author.username,
-              content: msg.content || "[attachment]",
-            })
-          }
-          className="size-8 md:size-6 grid place-items-center rounded hover:bg-muted text-muted-foreground hover:text-foreground"
-          title="Reply"
-          aria-label="Reply"
-        >
-          <Reply className="size-4 md:size-3" />
-        </button>
-        {isMine && !msg.__pending && (
-          <button
-            onClick={() => setEditingId(msg.id)}
-            className="size-8 md:size-6 grid place-items-center rounded hover:bg-muted text-muted-foreground hover:text-foreground"
-            title="Edit"
-            aria-label="Edit"
-          >
-            <Pencil className="size-4 md:size-3" />
-          </button>
-        )}
-        <button
-          onClick={() => {
-            const p = async () => {
-              if (!msg.pinned) await pinMessage(channelId, msg.id);
-              else await unpinMessage(channelId, msg.id);
-            };
-            toast.promise(p(), { loading: "Updating", success: "Done" });
-          }}
-          className="size-8 md:size-6 grid place-items-center rounded hover:bg-muted text-muted-foreground hover:text-foreground"
-          title={msg.pinned ? "Unpin" : "Pin"}
-          aria-label={msg.pinned ? "Unpin" : "Pin"}
-        >
-          {msg.pinned ? (
-            <PinOff className="size-4 md:size-3" />
-          ) : (
-            <Pin className="size-4 md:size-3" />
+        <>
+          {canReact && isSent(msg) && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className="size-8 md:size-6 grid place-items-center rounded hover:bg-muted text-muted-foreground hover:text-foreground"
+                  title="Add reaction"
+                  aria-label="Add reaction"
+                >
+                  <SmilePlus className="size-4 md:size-3" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-fit p-0" align="end">
+                <EmojiPickerPro
+                  guildId={serverId}
+                  onSelect={async (token) => {
+                    const m = token.match(/^<(a)?:([\w~]+):(\d+)>$/);
+                    const key = m ? `${m[2]}:${m[3]}` : token;
+                    const emoji = m
+                      ? { id: m[3], name: m[2], animated: !!m[1] }
+                      : { id: null, name: token };
+                    addReactionStore(channelId, msg.id, emoji, true);
+                    markReactionPending(channelId, msg.id, emoji, true);
+                    try {
+                      await addReaction(channelId, msg.id, key);
+                    } catch (e) {
+                      removeReactionStore(channelId, msg.id, emoji, true);
+                      toast.error(
+                        e instanceof Error
+                          ? e.message
+                          : "Failed to add reaction",
+                      );
+                    } finally {
+                      markReactionPending(channelId, msg.id, emoji, false);
+                    }
+                  }}
+                />
+              </PopoverContent>
+            </Popover>
           )}
-        </button>
-        {(isMine || canManageMessages) && (
           <button
-            onClick={() => {
-              const p = async () => deleteMessage(channelId, msg.id);
-              toast.promise(p(), { loading: "Deleting", success: "Deleted" });
-            }}
-            className="size-8 md:size-6 grid place-items-center rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
-            title="Delete"
-            aria-label="Delete"
+            type="button"
+            onClick={() =>
+              onReply({
+                id: msg.id,
+                author: msg.author.global_name ?? msg.author.username,
+                content: msg.content || "[attachment]",
+              })
+            }
+            className="size-8 md:size-6 grid place-items-center rounded hover:bg-muted text-muted-foreground hover:text-foreground"
+            title="Reply"
+            aria-label="Reply"
           >
-            <Trash2 className="size-4 md:size-3" />
+            <Reply className="size-4 md:size-3" />
           </button>
-        )}
-      </>
+          {isMine && isSent(msg) && (
+            <button
+              type="button"
+              onClick={() => setEditingId(msg.id)}
+              className="size-8 md:size-6 grid place-items-center rounded hover:bg-muted text-muted-foreground hover:text-foreground"
+              title="Edit"
+              aria-label="Edit"
+            >
+              <Pencil className="size-4 md:size-3" />
+            </button>
+          )}
+          {canManageMessages && isSent(msg) && (
+            <button
+              type="button"
+              onClick={() => togglePin(msg)}
+              className="size-8 md:size-6 grid place-items-center rounded hover:bg-muted text-muted-foreground hover:text-foreground"
+              title={msg.pinned ? "Unpin" : "Pin"}
+              aria-label={msg.pinned ? "Unpin" : "Pin"}
+            >
+              {msg.pinned ? (
+                <PinOff className="size-4 md:size-3" />
+              ) : (
+                <Pin className="size-4 md:size-3" />
+              )}
+            </button>
+          )}
+          {(isMine || canManageMessages) && !msg.__pending && (
+            <button
+              type="button"
+              onClick={() => deleteMsg(msg)}
+              className="size-8 md:size-6 grid place-items-center rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
+              title="Delete"
+              aria-label="Delete"
+            >
+              <Trash2 className="size-4 md:size-3" />
+            </button>
+          )}
+        </>
       );
     },
-    [onReply, channelId, canManageMessages, serverId, botUserId, addReactionStore, markReactionPending, removeReactionStore],
+    [
+      onReply,
+      channelId,
+      canManageMessages,
+      togglePin,
+      serverId,
+      botUserId,
+      addReactionStore,
+      markReactionPending,
+      removeReactionStore,
+      deleteMsg,
+      canReact,
+    ],
   );
 
   const renderMobileMenu = useCallback(
     (msg: Message) => {
-      const canDelete = msg.author.id === botUserId || canManageMessages;
-      const canEdit = msg.author.id === botUserId && !msg.__pending;
+      const canDelete =
+        (msg.author.id === botUserId || canManageMessages) && !msg.__pending;
+      const canEdit = msg.author.id === botUserId && isSent(msg);
       return (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
+              type="button"
               className="size-7 grid place-items-center rounded-md bg-popover/80 backdrop-blur border text-muted-foreground hover:text-foreground hover:bg-muted shadow-sm"
               title="Actions"
               aria-label="Message actions"
@@ -430,9 +552,11 @@ export function MessageList({
             align="end"
             className="bg-sidebar font-mono tracking-tighter"
           >
-            <DropdownMenuItem onSelect={() => setReactingId(msg.id)}>
-              <SmilePlus className="mr-2 size-4" /> Add reaction
-            </DropdownMenuItem>
+            {canReact && isSent(msg) && (
+              <DropdownMenuItem onSelect={() => setReactingId(msg.id)}>
+                <SmilePlus className="mr-2 size-4" /> Add reaction
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem
               onSelect={() =>
                 onReply({
@@ -449,25 +573,19 @@ export function MessageList({
                 <Pencil className="mr-2 size-4" /> Edit
               </DropdownMenuItem>
             )}
-            <DropdownMenuItem
-              onSelect={() => {
-                const p = async () => {
-                  if (!msg.pinned) await pinMessage(channelId, msg.id);
-                  else await unpinMessage(channelId, msg.id);
-                };
-                toast.promise(p(), { loading: "Updating", success: "Done" });
-              }}
-            >
-              {msg.pinned ? (
-                <>
-                  <PinOff className="mr-2 size-4" /> Unpin
-                </>
-              ) : (
-                <>
-                  <Pin className="mr-2 size-4" /> Pin
-                </>
-              )}
-            </DropdownMenuItem>
+            {canManageMessages && isSent(msg) && (
+              <DropdownMenuItem onSelect={() => togglePin(msg)}>
+                {msg.pinned ? (
+                  <>
+                    <PinOff className="mr-2 size-4" /> Unpin
+                  </>
+                ) : (
+                  <>
+                    <Pin className="mr-2 size-4" /> Pin
+                  </>
+                )}
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem
               onSelect={() => {
                 navigator.clipboard.writeText(msg.content ?? "");
@@ -487,13 +605,7 @@ export function MessageList({
             {canDelete && (
               <DropdownMenuItem
                 variant="destructive"
-                onSelect={() => {
-                  const p = async () => deleteMessage(channelId, msg.id);
-                  toast.promise(p(), {
-                    loading: "Deleting",
-                    success: "Deleted",
-                  });
-                }}
+                onSelect={() => deleteMsg(msg)}
               >
                 <Trash2 className="mr-2 size-4" /> Delete
               </DropdownMenuItem>
@@ -502,7 +614,7 @@ export function MessageList({
         </DropdownMenu>
       );
     },
-    [onReply, channelId, canManageMessages, botUserId],
+    [onReply, canManageMessages, togglePin, deleteMsg, botUserId, canReact],
   );
 
   const renderNameWrapper = useCallback(
@@ -524,7 +636,7 @@ export function MessageList({
           userId={msg.author.id}
           trigger={
             <ContextMenuTrigger asChild>
-              <button>
+              <button type="button">
                 <DiscordAvatar
                   src={avatarUrl(msg.author.id, msg.author.avatar)}
                   alt={msg.author.username}
@@ -535,48 +647,54 @@ export function MessageList({
           }
         />
         <ContextMenuContent className="bg-sidebar font-mono tracking-tighter">
-          {!msg.author.bot && (
+          {!msg.author.bot && (canTimeout || canKick || canBan) && (
             <>
               <ContextMenuGroup>
-                <ContextMenuSub>
-                  <ContextMenuSubTrigger>
-                    <ClockPlus />
-                    Timeout
-                  </ContextMenuSubTrigger>
-                  <ContextMenuSubContent className="bg-sidebar">
-                    {[1, 5, 10, 60, 1440, 10080].map((min) => (
+                {canTimeout && (
+                  <ContextMenuSub>
+                    <ContextMenuSubTrigger>
+                      <ClockPlus />
+                      Timeout
+                    </ContextMenuSubTrigger>
+                    <ContextMenuSubContent className="bg-sidebar">
+                      {[1, 5, 10, 60, 1440, 10080].map((min) => (
+                        <ContextMenuItem
+                          key={min}
+                          onSelect={() => timeoutMember(msg.author.id, min)}
+                        >
+                          {min < 60
+                            ? `${min} min`
+                            : min < 1440
+                              ? `${min / 60} hr`
+                              : `${min / 1440} day`}
+                        </ContextMenuItem>
+                      ))}
+                      <ContextMenuSeparator />
                       <ContextMenuItem
-                        key={min}
-                        onSelect={() => timeoutMember(msg.author.id, min)}
+                        variant="destructive"
+                        onSelect={() => timeoutMember(msg.author.id, null)}
                       >
-                        {min < 60
-                          ? `${min} min`
-                          : min < 1440
-                            ? `${min / 60} hr`
-                            : `${min / 1440} day`}
+                        Remove timeout
                       </ContextMenuItem>
-                    ))}
-                    <ContextMenuSeparator />
-                    <ContextMenuItem
-                      variant="destructive"
-                      onSelect={() => timeoutMember(msg.author.id, null)}
-                    >
-                      Remove timeout
-                    </ContextMenuItem>
-                  </ContextMenuSubContent>
-                </ContextMenuSub>
-                <ContextMenuItem
-                  variant="destructive"
-                  onSelect={() => kick(serverId, msg.author.id)}
-                >
-                  <UserRoundMinus /> Kick
-                </ContextMenuItem>
-                <ContextMenuItem
-                  variant="destructive"
-                  onSelect={() => ban(serverId, msg.author.id)}
-                >
-                  <Ban /> Ban
-                </ContextMenuItem>
+                    </ContextMenuSubContent>
+                  </ContextMenuSub>
+                )}
+                {canKick && (
+                  <ContextMenuItem
+                    variant="destructive"
+                    onSelect={() => kickMember(msg.author.id)}
+                  >
+                    <UserRoundMinus /> Kick
+                  </ContextMenuItem>
+                )}
+                {canBan && (
+                  <ContextMenuItem
+                    variant="destructive"
+                    onSelect={() => banMember(msg.author.id)}
+                  >
+                    <Ban /> Ban
+                  </ContextMenuItem>
+                )}
               </ContextMenuGroup>
               <ContextMenuSeparator />
             </>
@@ -597,7 +715,15 @@ export function MessageList({
         </ContextMenuContent>
       </ContextMenu>
     ),
-    [serverId, timeoutMember],
+    [
+      serverId,
+      timeoutMember,
+      kickMember,
+      banMember,
+      canTimeout,
+      canKick,
+      canBan,
+    ],
   );
 
   const renderContextMenu = useCallback(
@@ -606,9 +732,11 @@ export function MessageList({
         <ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
         <ContextMenuContent className="bg-sidebar font-mono tracking-tighter">
           <ContextMenuGroup>
-            <ContextMenuItem onSelect={() => setReactingId(msg.id)}>
-              <SmilePlus /> Add reaction
-            </ContextMenuItem>
+            {canReact && isSent(msg) && (
+              <ContextMenuItem onSelect={() => setReactingId(msg.id)}>
+                <SmilePlus /> Add reaction
+              </ContextMenuItem>
+            )}
             <ContextMenuItem
               onSelect={() =>
                 onReply({
@@ -620,39 +748,33 @@ export function MessageList({
             >
               <Reply /> Reply
             </ContextMenuItem>
-            {msg.author.id === botUserId && !msg.__pending && (
+            {msg.author.id === botUserId && isSent(msg) && (
               <ContextMenuItem onSelect={() => setEditingId(msg.id)}>
                 <Pencil /> Edit
               </ContextMenuItem>
             )}
-            <ContextMenuItem
-              onSelect={() => {
-                const p = async () => {
-                  if (!msg.pinned) await pinMessage(channelId, msg.id);
-                  else await unpinMessage(channelId, msg.id);
-                };
-                toast.promise(p(), { loading: "Updating", success: "Done" });
-              }}
-            >
-              {!msg.pinned ? (
-                <>
-                  <Pin /> Pin
-                </>
-              ) : (
-                <>
-                  <PinOff /> Unpin
-                </>
+            {canManageMessages && isSent(msg) && (
+              <ContextMenuItem onSelect={() => togglePin(msg)}>
+                {!msg.pinned ? (
+                  <>
+                    <Pin /> Pin
+                  </>
+                ) : (
+                  <>
+                    <PinOff /> Unpin
+                  </>
+                )}
+              </ContextMenuItem>
+            )}
+            {(msg.author.id === botUserId || canManageMessages) &&
+              !msg.__pending && (
+                <ContextMenuItem
+                  variant="destructive"
+                  onSelect={() => deleteMsg(msg)}
+                >
+                  <Trash2 /> Delete
+                </ContextMenuItem>
               )}
-            </ContextMenuItem>
-            <ContextMenuItem
-              variant="destructive"
-              onSelect={() => {
-                const p = async () => deleteMessage(channelId, msg.id);
-                toast.promise(p(), { loading: "Deleting", success: "Deleted" });
-              }}
-            >
-              <Trash2 /> Delete
-            </ContextMenuItem>
           </ContextMenuGroup>
           <ContextMenuSeparator />
           <ContextMenuGroup>
@@ -662,7 +784,7 @@ export function MessageList({
         </ContextMenuContent>
       </ContextMenu>
     ),
-    [onReply, channelId, botUserId],
+    [onReply, canManageMessages, togglePin, botUserId, deleteMsg, canReact],
   );
 
   const memberById = useMemo(() => {
@@ -679,7 +801,9 @@ export function MessageList({
     for (const id of typingMap.keys()) {
       if (names.length === 3) break;
       const m = memberById.get(id);
-      names.push(m ? (m.nick ?? m.user?.global_name ?? m.user?.username ?? id) : id);
+      names.push(
+        m ? (m.nick ?? m.user?.global_name ?? m.user?.username ?? id) : id,
+      );
     }
     return names;
   }, [typingMap, memberById]);
@@ -778,14 +902,16 @@ export function MessageList({
         </Button>
       )}
       {reactingId && (
-        <div
-          className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4"
-          onClick={() => setReactingId(null)}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="bg-popover border rounded-md shadow-lg max-w-[calc(100vw-2rem)]"
-          >
+        <div className="fixed inset-0 z-50 grid place-items-center p-4">
+          {/* Sibling rather than parent of the picker, so dismissing needs no
+              stopPropagation and the backdrop can be a real focusable button. */}
+          <button
+            type="button"
+            aria-label="Close emoji picker"
+            className="absolute inset-0 bg-black/40 cursor-default"
+            onClick={() => setReactingId(null)}
+          />
+          <div className="relative bg-popover border rounded-md shadow-lg max-w-[calc(100vw-2rem)]">
             <EmojiPickerPro
               guildId={serverId}
               onSelect={async (token) => {

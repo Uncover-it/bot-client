@@ -51,23 +51,32 @@ export function MemberList({ guildId }: Props) {
 
   const presenceMap = useMemo(() => {
     const m = new Map<string, Presence>();
-    presences.forEach((p) => m.set(p.user.id, p));
+    presences.forEach((p) => {
+      m.set(p.user.id, p);
+    });
     return m;
   }, [presences]);
 
   const { groups, onlineCount } = useMemo(() => {
     const allRoles = guild?.roles ?? [];
     const roleById = new Map<string, Role>();
-    allRoles.forEach((r) => roleById.set(r.id, r));
+    allRoles.forEach((r) => {
+      roleById.set(r.id, r);
+    });
     const hoistRoles = allRoles
       .filter((r) => r.hoist && r.id !== guildId)
       .sort((a, b) => b.position - a.position);
 
     const needle = query.trim().toLowerCase();
     const groupMap = new Map<string, Group>();
-    hoistRoles.forEach((r) => groupMap.set(r.id, { role: r, members: [] }));
+    hoistRoles.forEach((r) => {
+      groupMap.set(r.id, { role: r, members: [] });
+    });
     const everyone: Group = { role: null, members: [] };
-    const offline: Group = { role: { id: "offline", name: "Offline" } as Role, members: [] };
+    const offline: Group = {
+      role: { id: "offline", name: "Offline" } as Role,
+      members: [],
+    };
 
     let online = 0;
 
@@ -93,7 +102,11 @@ export function MemberList({ guildId }: Props) {
       for (const id of m.roles ?? []) {
         const r = roleById.get(id);
         if (!r) continue;
-        if (r.hoist && r.id !== guildId && (!hoist || r.position > hoist.position)) {
+        if (
+          r.hoist &&
+          r.id !== guildId &&
+          (!hoist || r.position > hoist.position)
+        ) {
           hoist = r;
         }
         if (r.color !== 0 && (!colorRole || r.position > colorRole.position)) {
@@ -105,7 +118,7 @@ export function MemberList({ guildId }: Props) {
         member: m,
         presence: p,
         color: colorRole
-          ? "#" + colorRole.color.toString(16).padStart(6, "0")
+          ? `#${colorRole.color.toString(16).padStart(6, "0")}`
           : undefined,
       };
 
@@ -116,8 +129,16 @@ export function MemberList({ guildId }: Props) {
 
     const sortMembers = (g: Group) =>
       g.members.sort((a, b) => {
-        const an = a.member.nick ?? a.member.user?.global_name ?? a.member.user?.username ?? "";
-        const bn = b.member.nick ?? b.member.user?.global_name ?? b.member.user?.username ?? "";
+        const an =
+          a.member.nick ??
+          a.member.user?.global_name ??
+          a.member.user?.username ??
+          "";
+        const bn =
+          b.member.nick ??
+          b.member.user?.global_name ??
+          b.member.user?.username ??
+          "";
         return an.localeCompare(bn);
       });
 
@@ -136,7 +157,10 @@ export function MemberList({ guildId }: Props) {
       sortMembers(offline);
       result.push(offline);
     }
-    return { groups: result, onlineCount: hasPresences ? online : members.length };
+    return {
+      groups: result,
+      onlineCount: hasPresences ? online : members.length,
+    };
   }, [members, presenceMap, guild?.roles, guildId, query, hasPresences]);
 
   const total = members.length;
@@ -146,7 +170,9 @@ export function MemberList({ guildId }: Props) {
     groups.forEach((g) => {
       const key = g.role?.id ?? "everyone";
       out.push({ groupKey: key, data: null, header: g });
-      g.members.forEach((m) => out.push({ groupKey: key, data: m }));
+      g.members.forEach((m) => {
+        out.push({ groupKey: key, data: m });
+      });
     });
     return out;
   }, [groups]);
@@ -177,13 +203,17 @@ export function MemberList({ guildId }: Props) {
         />
       </div>
       <IntentBanner reason="members" />
-      <div ref={scrollRef} onScroll={onScroll} className="flex-1 overflow-y-auto p-2">
+      <div
+        ref={scrollRef}
+        onScroll={onScroll}
+        className="flex-1 overflow-y-auto p-2"
+      >
         {!hasMembersIntent && members.length === 0 && (
           <p className="text-xs text-muted-foreground p-2">
             Loading via REST… if empty, bot may lack View Members permission.
           </p>
         )}
-        {visibleSlice.map((row, idx) => {
+        {visibleSlice.map((row) => {
           if (row.header) {
             const g = row.header;
             return (
@@ -194,7 +224,7 @@ export function MemberList({ guildId }: Props) {
                   g.role && g.role.id !== "offline" && g.role.color
                     ? {
                         color: readableRoleColor(
-                          "#" + g.role.color.toString(16).padStart(6, "0"),
+                          `#${g.role.color.toString(16).padStart(6, "0")}`,
                           theme,
                         ),
                       }
@@ -213,11 +243,12 @@ export function MemberList({ guildId }: Props) {
           const status = presence?.status ?? "offline";
           return (
             <UserProfilePopover
-              key={`${row.groupKey}-${u.id}-${idx}`}
+              key={`${row.groupKey}-${u.id}`}
               guildId={guildId}
               userId={u.id}
               trigger={
                 <button
+                  type="button"
                   className={cn(
                     "flex items-center gap-2 w-full px-2 py-1 rounded-md hover:bg-muted/60 transition-colors",
                     hasPresences && status === "offline" && "opacity-50",
@@ -227,12 +258,18 @@ export function MemberList({ guildId }: Props) {
                     src={avatarUrl(u.id, u.avatar)}
                     alt={name}
                     size={24}
-                    status={hasPresences ? (status as "online" | "idle" | "dnd" | "offline") : undefined}
+                    status={
+                      hasPresences
+                        ? (status as "online" | "idle" | "dnd" | "offline")
+                        : undefined
+                    }
                   />
                   <span
                     className="text-sm truncate"
                     style={
-                      color ? { color: readableRoleColor(color, theme) } : undefined
+                      color
+                        ? { color: readableRoleColor(color, theme) }
+                        : undefined
                     }
                   >
                     {name}
@@ -249,6 +286,7 @@ export function MemberList({ guildId }: Props) {
         })}
         {hasMore && (
           <button
+            type="button"
             onClick={() => setLimit((l) => l + PAGE_INC)}
             className="w-full text-xs text-muted-foreground hover:text-foreground py-2 mt-2"
           >

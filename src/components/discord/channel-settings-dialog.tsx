@@ -44,7 +44,12 @@ const ARCHIVE_OPTIONS = [
   { value: 10080, label: "1 week" },
 ];
 
-export function ChannelSettingsDialog({ guildId, channel, open, onOpenChange }: Props) {
+export function ChannelSettingsDialog({
+  guildId,
+  channel,
+  open,
+  onOpenChange,
+}: Props) {
   const isVoice =
     channel.type === CHANNEL_TYPE.GUILD_VOICE ||
     channel.type === CHANNEL_TYPE.GUILD_STAGE_VOICE;
@@ -102,7 +107,11 @@ export function ChannelSettingsDialog({ guildId, channel, open, onOpenChange }: 
       upsertChannel(res);
       onOpenChange(false);
     })();
-    toast.promise(p, { loading: "Saving", success: "Saved", error: (e) => `Error: ${e.message}` });
+    toast.promise(p, {
+      loading: "Saving",
+      success: "Saved",
+      error: (e) => `Error: ${e.message}`,
+    });
     p.finally(() => setBusy(false));
   }
 
@@ -110,12 +119,15 @@ export function ChannelSettingsDialog({ guildId, channel, open, onOpenChange }: 
     if (!canManage) return;
     if (!confirm(`Delete #${channel.name}? This is irreversible.`)) return;
     const p = async () => {
-      const res = await deleteChannel(channel.id);
-      if (res?.message) throw new Error(res.message);
+      await deleteChannel(channel.id);
       removeChannel(channel.id, guildId);
       onOpenChange(false);
     };
-    toast.promise(p(), { loading: "Deleting", success: "Deleted", error: (e) => `Error: ${e.message}` });
+    toast.promise(p(), {
+      loading: "Deleting",
+      success: "Deleted",
+      error: (e) => `Error: ${e.message}`,
+    });
   }
 
   return (

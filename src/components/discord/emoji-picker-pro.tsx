@@ -86,11 +86,10 @@ export function EmojiPickerPro({ guildId, onSelect }: Props) {
             <div className="grid grid-cols-8 gap-0.5 p-2 max-h-[280px] overflow-y-auto">
               {filtered.map((e) => (
                 <button
+                  type="button"
                   key={e.id!}
                   onClick={() =>
-                    onSelect(
-                      `<${e.animated ? "a" : ""}:${e.name}:${e.id}>`,
-                    )
+                    onSelect(`<${e.animated ? "a" : ""}:${e.name}:${e.id}>`)
                   }
                   title={`:${e.name}:`}
                   className="size-8 grid place-items-center rounded hover:bg-muted transition-colors"

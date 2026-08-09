@@ -6,7 +6,8 @@ const Spinner = ({
   size?: number;
 }) => {
   const spinnerBars = Array.from({ length: 10 }, (_, i) => ({
-    transform: `rotate(${i * 36} 12 12)`,
+    id: `bar-${i * 36}`,
+    transform: i === 0 ? undefined : `rotate(${i * 36} 12 12)`,
     opacity: i === 0 ? 1 : i / 10,
   }));
 
@@ -18,17 +19,18 @@ const Spinner = ({
         viewBox="0 0 24 24"
         xmlns="http://www.w3.org/2000/svg"
         className="fill-gray-600 dark:fill-gray-400"
+        aria-hidden="true"
       >
         <g className="origin-center animate-spinner-circle">
-          {spinnerBars.map((bar, index) => (
+          {spinnerBars.map((bar) => (
             <rect
-              key={`spinner-bar-${index}`}
+              key={bar.id}
               x="11"
               y="1"
               width="2"
               height="6"
-              transform={index === 0 ? undefined : bar.transform}
-              opacity={index === 0 ? 1 : bar.opacity}
+              transform={bar.transform}
+              opacity={bar.opacity}
             />
           ))}
         </g>

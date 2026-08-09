@@ -31,7 +31,7 @@ interface Props {
 export function RoleEditor({ guildId, role, open, onOpenChange }: Props) {
   const [name, setName] = useState(role.name);
   const [color, setColor] = useState(
-    role.color ? "#" + role.color.toString(16).padStart(6, "0") : "#888888",
+    role.color ? `#${role.color.toString(16).padStart(6, "0")}` : "#888888",
   );
   const [hoist, setHoist] = useState(role.hoist);
   const [mentionable, setMentionable] = useState(role.mentionable);
@@ -45,7 +45,9 @@ export function RoleEditor({ guildId, role, open, onOpenChange }: Props) {
 
   useEffect(() => {
     setName(role.name);
-    setColor(role.color ? "#" + role.color.toString(16).padStart(6, "0") : "#888888");
+    setColor(
+      role.color ? `#${role.color.toString(16).padStart(6, "0")}` : "#888888",
+    );
     setHoist(role.hoist);
     setMentionable(role.mentionable);
     setPerms(BigInt(role.permissions));
@@ -68,11 +70,17 @@ export function RoleEditor({ guildId, role, open, onOpenChange }: Props) {
         permissions: perms.toString(),
       });
       if (!res?.id) throw new Error(res?.message ?? "Update failed");
-      const next = (guild?.roles ?? []).filter((r) => r.id !== res.id).concat(res);
+      const next = (guild?.roles ?? [])
+        .filter((r) => r.id !== res.id)
+        .concat(res);
       upsertRoles(guildId, next);
       onOpenChange(false);
     })();
-    toast.promise(p, { loading: "Saving role", success: "Role updated", error: (e) => `Error: ${e.message}` });
+    toast.promise(p, {
+      loading: "Saving role",
+      success: "Role updated",
+      error: (e) => `Error: ${e.message}`,
+    });
     p.finally(() => setBusy(false));
   }
 
@@ -149,13 +157,18 @@ export function RoleEditor({ guildId, role, open, onOpenChange }: Props) {
         </DialogHeader>
         {!canManage && (
           <p className="text-xs text-destructive bg-destructive/10 px-3 py-2 rounded-md flex items-center gap-2">
-            <ShieldCheck className="size-3" /> Bot lacks Manage Roles permission. Read-only.
+            <ShieldCheck className="size-3" /> Bot lacks Manage Roles
+            permission. Read-only.
           </p>
         )}
         <div className="grid grid-cols-3 gap-3">
           <div className="col-span-2 space-y-1.5">
             <Label>Name</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} disabled={!canManage || role.managed} />
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              disabled={!canManage || role.managed}
+            />
           </div>
           <div className="space-y-1.5">
             <Label>Color</Label>
@@ -200,6 +213,7 @@ export function RoleEditor({ guildId, role, open, onOpenChange }: Props) {
                   const enabled = (perms & bit) !== 0n;
                   return (
                     <button
+                      type="button"
                       key={p}
                       onClick={() => togglePerm(p as keyof typeof PERMISSIONS)}
                       disabled={!canManage || role.managed}
@@ -210,7 +224,9 @@ export function RoleEditor({ guildId, role, open, onOpenChange }: Props) {
                       } ${!canManage ? "cursor-not-allowed opacity-60" : ""}`}
                     >
                       <span className="truncate text-left">{p}</span>
-                      <span className={`size-3 rounded-sm ${enabled ? "bg-green-500" : "bg-muted"}`} />
+                      <span
+                        className={`size-3 rounded-sm ${enabled ? "bg-green-500" : "bg-muted"}`}
+                      />
                     </button>
                   );
                 })}

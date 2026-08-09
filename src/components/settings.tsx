@@ -60,9 +60,15 @@ export function BotSettings() {
   const [activityText, setActivityText] = useState("");
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [bannerPreview, setBannerPreview] = useState<string | null>(null);
-  const [pendingAvatar, setPendingAvatar] = useState<string | null | undefined>(undefined);
-  const [pendingBanner, setPendingBanner] = useState<string | null | undefined>(undefined);
-  const [pendingIcon, setPendingIcon] = useState<string | null | undefined>(undefined);
+  const [pendingAvatar, setPendingAvatar] = useState<string | null | undefined>(
+    undefined,
+  );
+  const [pendingBanner, setPendingBanner] = useState<string | null | undefined>(
+    undefined,
+  );
+  const [pendingIcon, setPendingIcon] = useState<string | null | undefined>(
+    undefined,
+  );
   const [iconPreview, setIconPreview] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -81,7 +87,9 @@ export function BotSettings() {
           if (me.avatar) setAvatarPreview(avatarUrl(me.id, me.avatar, 256));
           if (me.banner) {
             const ext = me.banner.startsWith("a_") ? "gif" : "png";
-            setBannerPreview(`https://cdn.discordapp.com/banners/${me.id}/${me.banner}.${ext}?size=512`);
+            setBannerPreview(
+              `https://cdn.discordapp.com/banners/${me.id}/${me.banner}.${ext}?size=512`,
+            );
           }
         }
         const app = await getCurrentApplication();
@@ -90,7 +98,9 @@ export function BotSettings() {
           setDescription(app.description ?? "");
           if (app.icon) {
             const ext = app.icon.startsWith("a_") ? "gif" : "png";
-            setIconPreview(`https://cdn.discordapp.com/app-icons/${app.id}/${app.icon}.${ext}?size=256`);
+            setIconPreview(
+              `https://cdn.discordapp.com/app-icons/${app.id}/${app.icon}.${ext}?size=256`,
+            );
           }
         }
       } catch {}
@@ -186,7 +196,9 @@ export function BotSettings() {
     <div className="max-h-[80vh] overflow-y-auto">
       <DialogHeader>
         <DialogTitle>Bot settings</DialogTitle>
-        <DialogDescription>Edit profile, presence, and app metadata.</DialogDescription>
+        <DialogDescription>
+          Edit profile, presence, and app metadata.
+        </DialogDescription>
       </DialogHeader>
 
       <div className="grid gap-5 mt-4">
@@ -198,24 +210,30 @@ export function BotSettings() {
           <div className="space-y-2">
             <Label>Banner</Label>
             <div
-              className="relative w-full h-20 rounded-md border bg-muted overflow-hidden cursor-pointer group"
-              onClick={() => bannerInputRef.current?.click()}
+              className="relative w-full h-20 rounded-md border bg-muted overflow-hidden group"
               style={
                 bannerPreview
-                  ? { backgroundImage: `url(${bannerPreview})`, backgroundSize: "cover", backgroundPosition: "center" }
+                  ? {
+                      backgroundImage: `url(${bannerPreview})`,
+                      backgroundSize: "cover",
+                      backgroundPosition: "center",
+                    }
                   : undefined
               }
             >
-              <div className="absolute inset-0 grid place-items-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity text-white text-xs">
+              <button
+                type="button"
+                onClick={() => bannerInputRef.current?.click()}
+                className="absolute inset-0 grid place-items-center bg-black/40 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity text-white text-xs cursor-pointer"
+              >
                 <span className="inline-flex items-center gap-1">
                   <ImagePlus className="size-3" /> Upload banner
                 </span>
-              </div>
+              </button>
               {bannerPreview && (
                 <button
                   type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
+                  onClick={() => {
                     setBannerPreview(null);
                     setPendingBanner(null);
                   }}
@@ -232,7 +250,11 @@ export function BotSettings() {
               accept="image/png,image/jpeg,image/gif,image/webp"
               className="hidden"
               onChange={(e) => {
-                pickFile(e.target.files?.[0], setBannerPreview, setPendingBanner);
+                pickFile(
+                  e.target.files?.[0],
+                  setBannerPreview,
+                  setPendingBanner,
+                );
                 e.target.value = "";
               }}
             />
@@ -241,12 +263,21 @@ export function BotSettings() {
           <div className="flex items-start gap-3">
             <div className="space-y-2">
               <Label>Avatar</Label>
-              <div
+              <button
+                type="button"
+                aria-label="Change avatar"
                 className="size-20 rounded-full ring-2 ring-border bg-muted overflow-hidden cursor-pointer relative group"
                 onClick={() => avatarInputRef.current?.click()}
               >
                 {avatarPreview ? (
-                  <Image src={avatarPreview} alt="avatar" width={80} height={80} unoptimized className="object-cover" />
+                  <Image
+                    src={avatarPreview}
+                    alt="avatar"
+                    width={80}
+                    height={80}
+                    unoptimized
+                    className="object-cover"
+                  />
                 ) : (
                   <div className="size-full grid place-items-center text-xs text-muted-foreground">
                     no avatar
@@ -255,14 +286,18 @@ export function BotSettings() {
                 <div className="absolute inset-0 grid place-items-center bg-black/40 opacity-0 group-hover:opacity-100 transition text-white">
                   <ImagePlus className="size-4" />
                 </div>
-              </div>
+              </button>
               <input
                 ref={avatarInputRef}
                 type="file"
                 accept="image/png,image/jpeg,image/gif,image/webp"
                 className="hidden"
                 onChange={(e) => {
-                  pickFile(e.target.files?.[0], setAvatarPreview, setPendingAvatar);
+                  pickFile(
+                    e.target.files?.[0],
+                    setAvatarPreview,
+                    setPendingAvatar,
+                  );
                   e.target.value = "";
                 }}
               />
@@ -300,7 +335,10 @@ export function BotSettings() {
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Status</Label>
-              <Select value={status} onValueChange={(v) => setStatus(v as Status)}>
+              <Select
+                value={status}
+                onValueChange={(v) => setStatus(v as Status)}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -323,7 +361,8 @@ export function BotSettings() {
             </div>
           </div>
           <p className="text-[11px] text-muted-foreground">
-            Status sent over gateway. Persists until next restart unless re-applied.
+            Status sent over gateway. Persists until next restart unless
+            re-applied.
           </p>
         </section>
 
@@ -334,12 +373,21 @@ export function BotSettings() {
           <div className="flex items-start gap-3">
             <div className="space-y-2">
               <Label>App icon</Label>
-              <div
+              <button
+                type="button"
+                aria-label="Change app icon"
                 className="size-16 rounded-xl ring-2 ring-border bg-muted overflow-hidden cursor-pointer relative group"
                 onClick={() => iconInputRef.current?.click()}
               >
                 {iconPreview ? (
-                  <Image src={iconPreview} alt="app icon" width={64} height={64} unoptimized className="object-cover" />
+                  <Image
+                    src={iconPreview}
+                    alt="app icon"
+                    width={64}
+                    height={64}
+                    unoptimized
+                    className="object-cover"
+                  />
                 ) : (
                   <div className="size-full grid place-items-center text-xs text-muted-foreground">
                     none
@@ -348,7 +396,7 @@ export function BotSettings() {
                 <div className="absolute inset-0 grid place-items-center bg-black/40 opacity-0 group-hover:opacity-100 transition text-white">
                   <ImagePlus className="size-4" />
                 </div>
-              </div>
+              </button>
               <input
                 ref={iconInputRef}
                 type="file"
@@ -369,7 +417,9 @@ export function BotSettings() {
                 maxLength={400}
                 className="min-h-20"
               />
-              <p className="text-[11px] text-muted-foreground text-right">{description.length}/400</p>
+              <p className="text-[11px] text-muted-foreground text-right">
+                {description.length}/400
+              </p>
             </div>
           </div>
         </section>

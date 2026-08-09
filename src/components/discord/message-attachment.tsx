@@ -20,7 +20,7 @@ function formatBytes(bytes: number): string {
   if (!bytes) return "0 B";
   const sizes = ["B", "KB", "MB", "GB", "TB"];
   const i = Math.floor(Math.log(bytes) / Math.log(1024));
-  return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${sizes[i]}`;
+  return `${(bytes / 1024 ** i).toFixed(1)} ${sizes[i]}`;
 }
 
 export function MessageAttachment({ a }: { a: Attachment }) {
@@ -83,12 +83,17 @@ export function MessageAttachment({ a }: { a: Attachment }) {
       <FileIcon className="size-8 text-muted-foreground shrink-0" />
       <div className="flex-1 min-w-0">
         <div className="text-sm font-medium truncate">{a.filename}</div>
-        <div className="text-xs text-muted-foreground">{formatBytes(a.size)}</div>
+        <div className="text-xs text-muted-foreground">
+          {formatBytes(a.size)}
+        </div>
       </div>
       <Link
         href={a.proxy_url}
         target="_blank"
-        className={cn(buttonVariants({ size: "icon", variant: "ghost" }), "shrink-0")}
+        className={cn(
+          buttonVariants({ size: "icon", variant: "ghost" }),
+          "shrink-0",
+        )}
       >
         <Download className="size-4" />
       </Link>

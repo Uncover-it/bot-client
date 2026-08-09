@@ -18,7 +18,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Copy, UserRoundPlus, UserRound, MessageCircle, Link2 } from "lucide-react";
+import {
+  Copy,
+  UserRoundPlus,
+  UserRound,
+  MessageCircle,
+  Link2,
+} from "lucide-react";
 import { toast } from "sonner";
 import { getInviteCode } from "@/api/data/actions";
 
@@ -109,7 +115,9 @@ export function InviteLink({ id }: { id: number | string | undefined }) {
         toast.success("Invite copied", { description: url });
         setOpen(false);
       } catch {
-        toast.message("Invite created", { description: "Clipboard blocked. Copy from the dialog." });
+        toast.message("Invite created", {
+          description: "Clipboard blocked. Copy from the dialog.",
+        });
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Failed to create invite";
@@ -136,22 +144,28 @@ export function InviteLink({ id }: { id: number | string | undefined }) {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="font-mono tracking-tight">create invite</DialogTitle>
+            <DialogTitle className="font-mono tracking-tight">
+              create invite
+            </DialogTitle>
             <DialogDescription>
-              Configure how long this invite is valid and how many people can use it.
+              Configure how long this invite is valid and how many people can
+              use it.
             </DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-4 py-2">
             <div className="grid gap-1.5">
-              <label className="text-[10px] uppercase tracking-[0.18em] font-mono text-muted-foreground">
+              <label
+                htmlFor="invite-expires-after"
+                className="text-[10px] uppercase tracking-[0.18em] font-mono text-muted-foreground"
+              >
                 Expires after
               </label>
               <Select
                 value={String(maxAge)}
                 onValueChange={(v) => setMaxAge(Number(v))}
               >
-                <SelectTrigger className="w-full">
+                <SelectTrigger id="invite-expires-after" className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -168,14 +182,17 @@ export function InviteLink({ id }: { id: number | string | undefined }) {
             </div>
 
             <div className="grid gap-1.5">
-              <label className="text-[10px] uppercase tracking-[0.18em] font-mono text-muted-foreground">
+              <label
+                htmlFor="invite-max-uses"
+                className="text-[10px] uppercase tracking-[0.18em] font-mono text-muted-foreground"
+              >
                 Max uses
               </label>
               <Select
                 value={String(maxUses)}
                 onValueChange={(v) => setMaxUses(Number(v))}
               >
-                <SelectTrigger className="w-full">
+                <SelectTrigger id="invite-max-uses" className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -204,7 +221,9 @@ export function InviteLink({ id }: { id: number | string | undefined }) {
             {link && (
               <div className="border rounded-md bg-muted/40 px-3 py-2 flex items-center gap-2">
                 <Link2 className="size-3.5 shrink-0 text-muted-foreground" />
-                <code className="text-xs font-mono truncate flex-1">{link}</code>
+                <code className="text-xs font-mono truncate flex-1">
+                  {link}
+                </code>
                 <Button
                   size="sm"
                   variant="ghost"
@@ -228,11 +247,12 @@ export function InviteLink({ id }: { id: number | string | undefined }) {
             >
               Close
             </Button>
-            <Button
-              onClick={generate}
-              disabled={busy || id === undefined}
-            >
-              {busy ? "Generating…" : link ? "Generate another" : "Generate & copy"}
+            <Button onClick={generate} disabled={busy || id === undefined}>
+              {busy
+                ? "Generating…"
+                : link
+                  ? "Generate another"
+                  : "Generate & copy"}
             </Button>
           </DialogFooter>
         </DialogContent>

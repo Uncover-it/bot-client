@@ -1,6 +1,10 @@
 import { CDN_BASE } from "./constants";
 
-export function avatarUrl(userId: string, hash?: string | null, size = 128): string {
+export function avatarUrl(
+  userId: string,
+  hash?: string | null,
+  size = 128,
+): string {
   if (!hash) {
     const idx = (BigInt(userId) >> 22n) % 6n;
     return `${CDN_BASE}/embed/avatars/${idx}.png`;
@@ -30,7 +34,11 @@ export function userBannerUrl(
   return `${CDN_BASE}/banners/${userId}/${hash}.${ext}?size=${size}`;
 }
 
-export function guildIconUrl(guildId: string, hash?: string | null, size = 128): string | null {
+export function guildIconUrl(
+  guildId: string,
+  hash?: string | null,
+  size = 128,
+): string | null {
   if (!hash) return null;
   const ext = hash.startsWith("a_") ? "gif" : "png";
   return `${CDN_BASE}/icons/${guildId}/${hash}.${ext}?size=${size}`;
@@ -41,8 +49,10 @@ export function emojiUrl(id: string, animated = false): string {
 }
 
 export function stickerUrl(id: string, formatType: number, size = 64): string {
-  if (formatType === 4) return `https://media.discordapp.net/stickers/${id}.gif`;
-  if (formatType === 1 || formatType === 2) return `${CDN_BASE}/stickers/${id}.png?size=${size}`;
+  if (formatType === 4)
+    return `https://media.discordapp.net/stickers/${id}.gif`;
+  if (formatType === 1 || formatType === 2)
+    return `${CDN_BASE}/stickers/${id}.png?size=${size}`;
   return `${CDN_BASE}/stickers/${id}.json`;
 }
 

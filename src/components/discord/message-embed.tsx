@@ -6,7 +6,9 @@ import { cn } from "@/lib/utils";
 import type { Embed } from "@/lib/discord/types";
 
 export function MessageEmbed({ embed }: { embed: Embed }) {
-  const color = embed.color ? "#" + embed.color.toString(16).padStart(6, "0") : undefined;
+  const color = embed.color
+    ? `#${embed.color.toString(16).padStart(6, "0")}`
+    : undefined;
   return (
     <div
       className="rounded-md overflow-hidden text-foreground w-full max-w-lg min-w-0"
@@ -25,13 +27,20 @@ export function MessageEmbed({ embed }: { embed: Embed }) {
                 unoptimized
               />
             )}
-            <span className="text-sm font-medium truncate">{embed.author.name}</span>
+            <span className="text-sm font-medium truncate">
+              {embed.author.name}
+            </span>
           </div>
         )}
         {embed.title && (
           <div className="font-semibold text-sm break-words">
             {embed.url ? (
-              <a href={embed.url} target="_blank" rel="noreferrer" className="text-blue-500 hover:underline">
+              <a
+                href={embed.url}
+                target="_blank"
+                rel="noreferrer"
+                className="text-blue-500 hover:underline"
+              >
                 {embed.title}
               </a>
             ) : (
@@ -47,8 +56,17 @@ export function MessageEmbed({ embed }: { embed: Embed }) {
         {embed.fields && embed.fields.length > 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 min-w-0">
             {embed.fields.map((f, i) => (
-              <div key={i} className={cn("min-w-0 break-words", f.inline ? "" : "sm:col-span-2")}>
-                <div className="text-xs font-semibold break-words">{f.name}</div>
+              <div
+                // biome-ignore lint/suspicious/noArrayIndexKey: embed fields carry no id and the array is immutable for the life of the embed
+                key={i}
+                className={cn(
+                  "min-w-0 break-words",
+                  f.inline ? "" : "sm:col-span-2",
+                )}
+              >
+                <div className="text-xs font-semibold break-words">
+                  {f.name}
+                </div>
                 <Markdown className="text-xs">{f.value}</Markdown>
               </div>
             ))}

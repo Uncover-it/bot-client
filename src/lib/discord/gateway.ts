@@ -111,7 +111,12 @@ export class DiscordGateway {
     if (this.ws?.readyState !== WebSocket.OPEN) return false;
     this.send({
       op: OP.REQUEST_GUILD_MEMBERS,
-      d: { guild_id: guildId, query, limit, presences: !!(this.intents & INTENTS.GUILD_PRESENCES) },
+      d: {
+        guild_id: guildId,
+        query,
+        limit,
+        presences: !!(this.intents & INTENTS.GUILD_PRESENCES),
+      },
     });
     return true;
   }
@@ -120,7 +125,10 @@ export class DiscordGateway {
     return this.intents;
   }
 
-  updatePresence(status: "online" | "idle" | "dnd" | "invisible", activity?: string) {
+  updatePresence(
+    status: "online" | "idle" | "dnd" | "invisible",
+    activity?: string,
+  ) {
     this.send({
       op: OP.PRESENCE_UPDATE,
       d: {
@@ -353,7 +361,9 @@ export class DiscordGateway {
   private scheduleReconnect() {
     this.setState("reconnecting");
     this.reconnectAttempts++;
-    const delay = Math.min(30000, 1000 * 2 ** this.reconnectAttempts) + Math.random() * 1000;
+    const delay =
+      Math.min(30000, 1000 * 2 ** this.reconnectAttempts) +
+      Math.random() * 1000;
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;

@@ -1,11 +1,25 @@
 "use client";
 
-import { Activity, ExternalLink, Loader2, ShieldAlert, Wifi, WifiOff } from "lucide-react";
+import {
+  Activity,
+  ExternalLink,
+  Loader2,
+  ShieldAlert,
+  Wifi,
+  WifiOff,
+} from "lucide-react";
 import Link from "next/link";
 import { useRealtimeStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { devPortalUrl, getMissingPrivilegedIntents } from "@/components/discord/intent-warning";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  devPortalUrl,
+  getMissingPrivilegedIntents,
+} from "@/components/discord/intent-warning";
 
 export function StatusBar() {
   const state = useRealtimeStore((s) => s.gatewayState);
@@ -46,16 +60,24 @@ export function StatusBar() {
                 ? "Connecting"
                 : "Idle";
 
-  const Icon = state === "ready" ? Wifi : state === "disconnected" ? WifiOff : Loader2;
+  const Icon =
+    state === "ready" ? Wifi : state === "disconnected" ? WifiOff : Loader2;
 
   return (
     <Popover>
       <PopoverTrigger asChild>
         <button
+          type="button"
           className="hidden sm:flex items-center gap-1.5 text-[10px] uppercase tracking-[0.18em] font-mono px-2 py-1 rounded-md hover:bg-muted/50 cursor-pointer transition-colors"
           aria-label="Connection details"
         >
-          <span className={cn("size-1.5 rounded-full", dot, state !== "ready" && "animate-pulse")} />
+          <span
+            className={cn(
+              "size-1.5 rounded-full",
+              dot,
+              state !== "ready" && "animate-pulse",
+            )}
+          />
           <Icon
             className={cn(
               "size-3 text-muted-foreground",
@@ -97,7 +119,8 @@ export function StatusBar() {
               ))}
             </ul>
             <p className="text-yellow-700/90 dark:text-yellow-400/80 leading-snug">
-              Enable these in the Developer Portal so the bot can read message content, members, and presence.
+              Enable these in the Developer Portal so the bot can read message
+              content, members, and presence.
             </p>
             <Link
               href={devPortalUrl(appId)}

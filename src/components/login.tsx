@@ -71,8 +71,8 @@ export default function LoginForm() {
         </button>
       </div>
       <p className="text-xs text-muted-foreground text-left">
-        Sent to this server to talk to Discord on your behalf. Stored only in
-        an httpOnly session cookie. Not written to a database.
+        Sent to this server to talk to Discord on your behalf. Stored only in an
+        httpOnly session cookie. Not written to a database.
       </p>
       <Button className="w-full" disabled={!token || busy}>
         {busy ? "Logging in…" : "Login"}

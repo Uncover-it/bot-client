@@ -11,7 +11,11 @@ interface Props {
   children: React.ReactNode;
 }
 
-export function GatewayProvider({ initialUser, initialToken, children }: Props) {
+export function GatewayProvider({
+  initialUser,
+  initialToken,
+  children,
+}: Props) {
   useGateway(initialToken);
   const setUser = useRealtimeStore((s) => s.setUser);
 

@@ -163,8 +163,18 @@ export interface Embed {
   color?: number;
   footer?: { text: string; icon_url?: string; proxy_icon_url?: string };
   image?: { url: string; proxy_url?: string; width?: number; height?: number };
-  thumbnail?: { url: string; proxy_url?: string; width?: number; height?: number };
-  author?: { name: string; url?: string; icon_url?: string; proxy_icon_url?: string };
+  thumbnail?: {
+    url: string;
+    proxy_url?: string;
+    width?: number;
+    height?: number;
+  };
+  author?: {
+    name: string;
+    url?: string;
+    icon_url?: string;
+    proxy_icon_url?: string;
+  };
   fields?: { name: string; value: string; inline?: boolean }[];
 }
 

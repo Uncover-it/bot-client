@@ -20,11 +20,13 @@ export function VoiceView({ channel }: Props) {
         </div>
         <h2 className="text-lg font-semibold">{channel.name}</h2>
         <p className="text-sm text-muted-foreground">
-          {isStage ? "Stage" : "Voice"} channels are read-only here. Bot voice connections aren&apos;t supported in this client.
+          {isStage ? "Stage" : "Voice"} channels are read-only here. Bot voice
+          connections aren&apos;t supported in this client.
         </p>
         {channel.bitrate && (
           <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground font-mono">
-            <Volume2 className="size-3" /> {Math.round(channel.bitrate / 1000)} kbps
+            <Volume2 className="size-3" /> {Math.round(channel.bitrate / 1000)}{" "}
+            kbps
             {channel.user_limit ? ` · limit ${channel.user_limit}` : ""}
           </div>
         )}

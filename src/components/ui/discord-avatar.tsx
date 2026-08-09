@@ -23,7 +23,10 @@ export function DiscordAvatar({
 }: Props) {
   return (
     <div
-      className={cn("relative shrink-0 rounded-full overflow-visible", className)}
+      className={cn(
+        "relative shrink-0 rounded-full overflow-visible",
+        className,
+      )}
       style={{ width: size, height: size }}
     >
       <Image
@@ -44,7 +47,10 @@ export function DiscordAvatar({
             "absolute bottom-0 right-0 block rounded-full ring-2 ring-background",
             STATUS_COLOR[status] ?? STATUS_COLOR.offline,
           )}
-          style={{ width: Math.max(8, size / 4), height: Math.max(8, size / 4) }}
+          style={{
+            width: Math.max(8, size / 4),
+            height: Math.max(8, size / 4),
+          }}
         />
       )}
     </div>

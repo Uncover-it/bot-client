@@ -31,7 +31,9 @@ const LIFE = {
 
 /** Build an Error carrying Discord's own message when it sent one. */
 async function discordError(res: Response, fallback: string): Promise<Error> {
-  const body = (await res.json().catch(() => null)) as { message?: string } | null;
+  const body = (await res.json().catch(() => null)) as {
+    message?: string;
+  } | null;
   return new Error(body?.message ?? `${fallback} (HTTP ${res.status})`);
 }
 
@@ -84,7 +86,9 @@ interface RawGuild {
 
 export async function getServers() {
   const t = await token();
-  const guilds = (await cachedJson(t, "/users/@me/guilds", "minutes")) as RawGuild[] | null;
+  const guilds = (await cachedJson(t, "/users/@me/guilds", "minutes")) as
+    | RawGuild[]
+    | null;
   return Array.isArray(guilds) ? guilds : [];
 }
 
@@ -118,7 +122,11 @@ export async function getGuildMember(guildId: string, userId: string) {
   return res.json();
 }
 
-export async function searchGuildMembers(guildId: string, query: string, limit = 8) {
+export async function searchGuildMembers(
+  guildId: string,
+  query: string,
+  limit = 8,
+) {
   const q = query.trim();
   if (!q) return [];
   const res = await authed(
@@ -137,14 +145,34 @@ export async function getUser(userId: string) {
 
 export async function getAuditLog(
   guildId: string,
-  options?: { limit?: number; before?: string; actionType?: number; userId?: string },
+  options?: {
+    limit?: number;
+    before?: string;
+    actionType?: number;
+    userId?: string;
+  },
 ) {
   const params = new URLSearchParams();
   params.set("limit", String(options?.limit ?? 50));
   if (options?.before) params.set("before", options.before);
-  if (options?.actionType !== undefined) params.set("action_type", String(options.actionType));
+  if (options?.actionType !== undefined)
+    params.set("action_type", String(options.actionType));
   if (options?.userId) params.set("user_id", options.userId);
-  const res = await authed(`/guilds/${guildId}/audit-logs?${params.toString()}`, {
+  const res = await authed(
+    `/guilds/${guildId}/audit-logs?${params.toString()}`,
+    {
+      cache: "no-store",
+    },
+  );
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    return { error: body.message ?? `HTTP ${res.status}` };
+  }
+  return res.json();
+}
+
+export async function getChannelWebhooks(channelId: string) {
+  const res = await authed(`/channels/${channelId}/webhooks`, {
     cache: "no-store",
   });
   if (!res.ok) {
@@ -154,16 +182,11 @@ export async function getAuditLog(
   return res.json();
 }
 
-export async function getChannelWebhooks(channelId: string) {
-  const res = await authed(`/channels/${channelId}/webhooks`, { cache: "no-store" });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    return { error: body.message ?? `HTTP ${res.status}` };
-  }
-  return res.json();
-}
-
-export async function createWebhook(channelId: string, name: string, avatar?: string | null) {
+export async function createWebhook(
+  channelId: string,
+  name: string,
+  avatar?: string | null,
+) {
   await ensureHuman();
   const body: Record<string, unknown> = { name };
   if (avatar !== undefined) body.avatar = avatar;
@@ -178,12 +201,16 @@ export async function createWebhook(channelId: string, name: string, avatar?: st
 export async function deleteWebhook(webhookId: string) {
   await ensureHuman();
   const res = await authed(`/webhooks/${webhookId}`, { method: "DELETE" });
-  if (res.status === 204) return { ok: true };
-  return res.json().catch(() => ({ ok: false }));
+  if (!res.ok) throw await discordError(res, "Failed to delete webhook");
+  return { ok: true };
 }
 
 export async function updateBotInfo(
-  data: Partial<{ username: string; avatar: string | null; banner: string | null }>,
+  data: Partial<{
+    username: string;
+    avatar: string | null;
+    banner: string | null;
+  }>,
 ) {
   await ensureHuman();
   const res = await authed("/users/@me", {
@@ -269,7 +296,12 @@ export async function sendMessage(
   }
 
   const form = new FormData();
-  const payload: Record<string, unknown> = { content: text ?? "", tts, ...ref, ...nonceField };
+  const payload: Record<string, unknown> = {
+    content: text ?? "",
+    tts,
+    ...ref,
+    ...nonceField,
+  };
   if (stickerId) payload.sticker_ids = [stickerId];
   form.append("payload_json", JSON.stringify(payload));
 
@@ -333,49 +365,80 @@ export async function setTimeout(
 
 export async function kick(serverId: string, userId: string) {
   await ensureHuman();
-  const res = await authed(`/guilds/${serverId}/members/${userId}`, { method: "DELETE" });
-  return res.ok ? { ok: true } : res.json();
+  const res = await authed(`/guilds/${serverId}/members/${userId}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) throw await discordError(res, "Failed to kick member");
+  return { ok: true };
 }
 
-export async function ban(serverId: string, userId: string, deleteMessageDays = 0) {
+export async function ban(
+  serverId: string,
+  userId: string,
+  deleteMessageDays = 0,
+) {
   await ensureHuman();
   const res = await authed(`/guilds/${serverId}/bans/${userId}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ delete_message_seconds: deleteMessageDays * 86400 }),
   });
-  return res.ok ? { ok: true } : res.json();
+  if (!res.ok) throw await discordError(res, "Failed to ban member");
+  return { ok: true };
 }
 
 export async function unban(serverId: string, userId: string) {
   await ensureHuman();
-  const res = await authed(`/guilds/${serverId}/bans/${userId}`, { method: "DELETE" });
-  return res.ok ? { ok: true } : res.json();
+  const res = await authed(`/guilds/${serverId}/bans/${userId}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) throw await discordError(res, "Failed to unban member");
+  return { ok: true };
 }
 
 export async function getGuildBans(serverId: string, limit = 100) {
-  const res = await authed(`/guilds/${serverId}/bans?limit=${limit}`, { cache: "no-store" });
+  const res = await authed(`/guilds/${serverId}/bans?limit=${limit}`, {
+    cache: "no-store",
+  });
   return res.json();
 }
 
-export async function addMemberRole(guildId: string, userId: string, roleId: string) {
+export async function addMemberRole(
+  guildId: string,
+  userId: string,
+  roleId: string,
+) {
   await ensureHuman();
-  const res = await authed(`/guilds/${guildId}/members/${userId}/roles/${roleId}`, {
-    method: "PUT",
-  });
-  return res.ok ? { ok: true } : res.json();
+  const res = await authed(
+    `/guilds/${guildId}/members/${userId}/roles/${roleId}`,
+    {
+      method: "PUT",
+    },
+  );
+  if (!res.ok) throw await discordError(res, "Failed to add role");
+  return { ok: true };
 }
 
-export async function removeMemberRole(guildId: string, userId: string, roleId: string) {
+export async function removeMemberRole(
+  guildId: string,
+  userId: string,
+  roleId: string,
+) {
   await ensureHuman();
-  const res = await authed(`/guilds/${guildId}/members/${userId}/roles/${roleId}`, {
-    method: "DELETE",
-  });
-  return res.ok ? { ok: true } : res.json();
+  const res = await authed(
+    `/guilds/${guildId}/members/${userId}/roles/${roleId}`,
+    {
+      method: "DELETE",
+    },
+  );
+  if (!res.ok) throw await discordError(res, "Failed to remove role");
+  return { ok: true };
 }
 
 export async function getActiveThreads(guildId: string) {
-  const res = await authed(`/guilds/${guildId}/threads/active`, { cache: "no-store" });
+  const res = await authed(`/guilds/${guildId}/threads/active`, {
+    cache: "no-store",
+  });
   return res.json();
 }
 
@@ -395,14 +458,20 @@ export async function deleteMessage(channelId: string, messageId: string) {
 
 export async function pinMessage(channelId: string, messageId: string) {
   await ensureHuman();
-  const res = await authed(`/channels/${channelId}/pins/${messageId}`, { method: "PUT" });
-  return res.ok ? { ok: true } : res.json();
+  const res = await authed(`/channels/${channelId}/pins/${messageId}`, {
+    method: "PUT",
+  });
+  if (!res.ok) throw await discordError(res, "Failed to pin message");
+  return { ok: true };
 }
 
 export async function unpinMessage(channelId: string, messageId: string) {
   await ensureHuman();
-  const res = await authed(`/channels/${channelId}/pins/${messageId}`, { method: "DELETE" });
-  return res.ok ? { ok: true } : res.json();
+  const res = await authed(`/channels/${channelId}/pins/${messageId}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) throw await discordError(res, "Failed to unpin message");
+  return { ok: true };
 }
 
 export async function getStickers(serverId: string) {
@@ -450,7 +519,8 @@ export async function updateChannel(
 export async function deleteChannel(channelId: string) {
   await ensureHuman();
   const res = await authed(`/channels/${channelId}`, { method: "DELETE" });
-  return res.ok ? { ok: true } : res.json();
+  if (!res.ok) throw await discordError(res, "Failed to delete channel");
+  return { ok: true };
 }
 
 export async function triggerTyping(channelId: string) {
@@ -473,7 +543,13 @@ export async function updateGuild(
 export async function updateRole(
   guildId: string,
   roleId: string,
-  data: Partial<{ name: string; color: number; hoist: boolean; mentionable: boolean; permissions: string }>,
+  data: Partial<{
+    name: string;
+    color: number;
+    hoist: boolean;
+    mentionable: boolean;
+    permissions: string;
+  }>,
 ) {
   await ensureHuman();
   const res = await authed(`/guilds/${guildId}/roles/${roleId}`, {
@@ -486,7 +562,13 @@ export async function updateRole(
 
 export async function createRole(
   guildId: string,
-  data: Partial<{ name: string; color: number; hoist: boolean; mentionable: boolean; permissions: string }>,
+  data: Partial<{
+    name: string;
+    color: number;
+    hoist: boolean;
+    mentionable: boolean;
+    permissions: string;
+  }>,
 ) {
   await ensureHuman();
   const res = await authed(`/guilds/${guildId}/roles`, {
@@ -499,8 +581,11 @@ export async function createRole(
 
 export async function deleteRole(guildId: string, roleId: string) {
   await ensureHuman();
-  const res = await authed(`/guilds/${guildId}/roles/${roleId}`, { method: "DELETE" });
-  return res.ok ? { ok: true } : res.json();
+  const res = await authed(`/guilds/${guildId}/roles/${roleId}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) throw await discordError(res, "Failed to delete role");
+  return { ok: true };
 }
 
 export async function getGuildEmojis(guildId: string) {
@@ -508,7 +593,11 @@ export async function getGuildEmojis(guildId: string) {
   return cachedJson(t, `/guilds/${guildId}/emojis`, "hours");
 }
 
-export async function addReaction(channelId: string, messageId: string, emoji: string) {
+export async function addReaction(
+  channelId: string,
+  messageId: string,
+  emoji: string,
+) {
   const res = await authed(
     `/channels/${channelId}/messages/${messageId}/reactions/${encodeURIComponent(emoji)}/@me`,
     { method: "PUT" },
@@ -517,7 +606,11 @@ export async function addReaction(channelId: string, messageId: string, emoji: s
   return { ok: true };
 }
 
-export async function removeReaction(channelId: string, messageId: string, emoji: string) {
+export async function removeReaction(
+  channelId: string,
+  messageId: string,
+  emoji: string,
+) {
   const res = await authed(
     `/channels/${channelId}/messages/${messageId}/reactions/${encodeURIComponent(emoji)}/@me`,
     { method: "DELETE" },

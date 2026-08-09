@@ -48,7 +48,10 @@ interface State {
   upsertChannel: (c: Channel) => void;
   removeChannel: (id: string, guildId?: string) => void;
   setRoles: (guildId: string, roles: Role[]) => void;
-  setEmojis: (guildId: string, emojis: import("@/lib/discord/types").Emoji[]) => void;
+  setEmojis: (
+    guildId: string,
+    emojis: import("@/lib/discord/types").Emoji[],
+  ) => void;
   openChannel: (channelId: string) => void;
   setMessages: (channelId: string, messages: Message[]) => void;
   prependMessages: (channelId: string, messages: Message[]) => void;
@@ -125,7 +128,9 @@ export const useRealtimeStore = create<State>((set) => ({
       const next = new Map(state.guilds);
       const g = next.get(c.guild_id);
       if (!g) return {};
-      const channels = (g.channels ?? []).filter((x) => x.id !== c.id).concat(c);
+      const channels = (g.channels ?? [])
+        .filter((x) => x.id !== c.id)
+        .concat(c);
       next.set(c.guild_id, { ...g, channels });
       return { guilds: next };
     }),
@@ -135,7 +140,10 @@ export const useRealtimeStore = create<State>((set) => ({
       const next = new Map(state.guilds);
       const g = next.get(guildId);
       if (!g) return {};
-      next.set(guildId, { ...g, channels: (g.channels ?? []).filter((c) => c.id !== id) });
+      next.set(guildId, {
+        ...g,
+        channels: (g.channels ?? []).filter((c) => c.id !== id),
+      });
       return { guilds: next };
     }),
   setRoles: (guildId, roles) =>
@@ -299,7 +307,9 @@ export const useRealtimeStore = create<State>((set) => ({
       const next = new Map(state.members);
       const cur = next.get(guildId) ?? [];
       const existing = cur.find((m) => m.user?.id === member.user?.id);
-      const merged: GuildMember = existing ? { ...existing, ...member } : member;
+      const merged: GuildMember = existing
+        ? { ...existing, ...member }
+        : member;
       if (
         existing &&
         Array.isArray(existing.roles) &&
@@ -332,7 +342,9 @@ export const useRealtimeStore = create<State>((set) => ({
         if (msg.id !== messageId) return msg;
         const reactions = [...(msg.reactions ?? [])];
         const idx = reactions.findIndex((r) =>
-          emoji.id ? r.emoji.id === emoji.id : !r.emoji.id && r.emoji.name === emoji.name,
+          emoji.id
+            ? r.emoji.id === emoji.id
+            : !r.emoji.id && r.emoji.name === emoji.name,
         );
         if (idx >= 0) {
           const r = reactions[idx];
@@ -390,7 +402,9 @@ export const useRealtimeStore = create<State>((set) => ({
       const updated = cur.map((msg) => {
         if (msg.id !== messageId) return msg;
         const reactions = (msg.reactions ?? []).filter((r) =>
-          emoji.id ? r.emoji.id !== emoji.id : r.emoji.id || r.emoji.name !== emoji.name,
+          emoji.id
+            ? r.emoji.id !== emoji.id
+            : r.emoji.id || r.emoji.name !== emoji.name,
         );
         return { ...msg, reactions };
       });
@@ -430,8 +444,12 @@ export const useRealtimeStore = create<State>((set) => ({
     set((state) => {
       const next = new Map(state.presences);
       const map = new Map<string, Presence>();
-      (next.get(guildId) ?? []).forEach((p) => map.set(p.user.id, p));
-      presences.forEach((p) => map.set(p.user.id, p));
+      (next.get(guildId) ?? []).forEach((p) => {
+        map.set(p.user.id, p);
+      });
+      presences.forEach((p) => {
+        map.set(p.user.id, p);
+      });
       next.set(guildId, Array.from(map.values()));
       return { presences: next };
     }),

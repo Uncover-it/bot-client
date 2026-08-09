@@ -1,0 +1,86 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.5.7/schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "files": {
+    "ignoreUnknown": true,
+    // .claude is agent tooling config, rewritten by the tool itself, so it
+    // drifts out of format on its own and is not ours to style.
+    "includes": ["**", "!node_modules", "!.next", "!dist", "!build", "!.claude"]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2
+  },
+  "css": {
+    "parser": {
+      "tailwindDirectives": true
+    }
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "preset": "recommended",
+      "a11y": {
+        // Attachments are arbitrary user uploads proxied from the Discord CDN.
+        // There is no caption track to point at, so the rule can never be met.
+        "useMediaCaption": "off"
+      },
+      "performance": {
+        // Message content renders emoji/stickers straight off the Discord CDN
+        // at sizes the markup already fixes. next/image would be `unoptimized`
+        // anyway, so it buys nothing over a plain <img>.
+        "noImgElement": "off"
+      },
+      "style": {
+        // Most of the Discord API surface is typed optional even where the
+        // gateway guarantees a value (custom emoji ids, member.user in a guild
+        // member list). The assertions are load-bearing, not sloppiness.
+        "noNonNullAssertion": "off"
+      },
+      "suspicious": {
+        // Both writers set a plain UI preference cookie (sidebar open state and
+        // width). CookieStore is not available across our target browsers.
+        "noDocumentCookie": "off"
+      }
+    },
+    "domains": {
+      "next": "recommended",
+      "react": "recommended"
+    }
+  },
+  "assist": {
+    "actions": {
+      "source": {
+        "organizeImports": "off"
+      }
+    }
+  },
+  "overrides": [
+    {
+      "includes": ["**/*.svg"],
+      "linter": {
+        "rules": {
+          "a11y": {
+            "noSvgWithoutTitle": "off",
+            "useGenericFontNames": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/components/ui/**"],
+      "linter": {
+        "rules": {
+          "a11y": {
+            "useSemanticElements": "off"
+          }
+        }
+      }
+    }
+  ]
+}

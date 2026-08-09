@@ -94,13 +94,9 @@ export function WebhooksSection({ channelId, canManage }: Props) {
     if (!canManage) return;
     if (!confirm(`Delete webhook "${hook.name ?? hook.id}"?`)) return;
     try {
-      const res = await deleteWebhook(hook.id);
-      if (res && "ok" in res && res.ok) {
-        setHooks((cur) => (cur ?? []).filter((h) => h.id !== hook.id));
-        toast.success("Webhook deleted");
-        return;
-      }
-      throw new Error("Delete failed");
+      await deleteWebhook(hook.id);
+      setHooks((cur) => (cur ?? []).filter((h) => h.id !== hook.id));
+      toast.success("Webhook deleted");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Delete failed");
     }

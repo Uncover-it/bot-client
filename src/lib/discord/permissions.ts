@@ -19,7 +19,7 @@ export function computeChannelPermissions(
   botUserId?: string,
   guildId?: string,
 ): bigint {
-  if (!channel || !channel.permission_overwrites) return basePerms;
+  if (!channel?.permission_overwrites) return basePerms;
   if ((basePerms & PERMISSIONS.Administrator) !== 0n) return basePerms;
 
   let perms = basePerms;

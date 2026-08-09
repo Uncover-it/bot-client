@@ -15,7 +15,11 @@ import {
 import Spinner from "@/components/ui/spinner";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   Popover,
   PopoverContent,
@@ -131,7 +135,8 @@ export function MessageInput({
   const canSend = hydrated ? can(perms, "Send Messages") : true;
   const canAttach = hydrated ? can(perms, "Attach Files") : true;
   const canEmbed = hydrated ? can(perms, "Embed Links") : true;
-  const slowmode = channels.find((c) => c.id === channelId)?.rate_limit_per_user ?? 0;
+  const slowmode =
+    channels.find((c) => c.id === channelId)?.rate_limit_per_user ?? 0;
 
   // Object URLs outlive the `files` array: once a message is sent optimistically
   // its attachments still point at these URLs until the real message lands.
@@ -145,27 +150,35 @@ export function MessageInput({
   useEffect(() => {
     const urls = objectUrls.current;
     return () => {
-      urls.forEach((u) => URL.revokeObjectURL(u));
+      urls.forEach((u) => {
+        URL.revokeObjectURL(u);
+      });
       urls.clear();
     };
   }, []);
 
+  // channelId and reply are triggers, not reads: switching channel or starting
+  // a reply should pull focus back to the composer.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: deliberate re-run triggers
   useEffect(() => {
     taRef.current?.focus();
   }, [channelId, reply]);
 
-  const addFiles = useCallback((list: FileList | File[]) => {
-    if (!canAttach) {
-      toast.error("Bot lacks Attach Files permission");
-      return;
-    }
-    const next: Attached[] = Array.from(list).map((file) => {
-      const url = URL.createObjectURL(file);
-      objectUrls.current.add(url);
-      return { id: nanoid(), file, url };
-    });
-    setFiles((prev) => [...prev, ...next]);
-  }, [canAttach]);
+  const addFiles = useCallback(
+    (list: FileList | File[]) => {
+      if (!canAttach) {
+        toast.error("Bot lacks Attach Files permission");
+        return;
+      }
+      const next: Attached[] = Array.from(list).map((file) => {
+        const url = URL.createObjectURL(file);
+        objectUrls.current.add(url);
+        return { id: nanoid(), file, url };
+      });
+      setFiles((prev) => [...prev, ...next]);
+    },
+    [canAttach],
+  );
 
   useEffect(() => {
     const onPaste = (e: ClipboardEvent) => {
@@ -231,7 +244,7 @@ export function MessageInput({
           .filter((r) => m.roles.includes(r.id) && r.color !== 0)
           .sort((a, b) => b.position - a.position);
         if (!sorted.length) return undefined;
-        return "#" + sorted[0].color.toString(16).padStart(6, "0");
+        return `#${sorted[0].color.toString(16).padStart(6, "0")}`;
       };
 
       const memberById = new Map<string, GuildMember>();
@@ -267,7 +280,12 @@ export function MessageInput({
       });
 
       const matches = (m: GuildMember) => {
-        const n = (m.nick ?? m.user?.global_name ?? m.user?.username ?? "").toLowerCase();
+        const n = (
+          m.nick ??
+          m.user?.global_name ??
+          m.user?.username ??
+          ""
+        ).toLowerCase();
         return n.includes(trigger.query);
       };
 
@@ -309,7 +327,15 @@ export function MessageInput({
         label: c.name ?? c.id,
         insert: `<#${c.id}>`,
       }));
-  }, [trigger, members, remoteMembers, channels, guildRoles, channelMessages, recentAuthorIds]);
+  }, [
+    trigger,
+    members,
+    remoteMembers,
+    channels,
+    guildRoles,
+    channelMessages,
+    recentAuthorIds,
+  ]);
 
   // Read through a ref: the fetch below calls upsertMember, so depending on
   // members.length directly would re-run this effect and refetch every time.
@@ -349,7 +375,10 @@ export function MessageInput({
     setRemoteMembers([]);
   }
 
-  const safeActiveSugg = Math.min(activeSugg, Math.max(0, suggestions.length - 1));
+  const safeActiveSugg = Math.min(
+    activeSugg,
+    Math.max(0, suggestions.length - 1),
+  );
 
   function applySuggestion(s: Suggestion) {
     setText((prev) => {
@@ -441,7 +470,9 @@ export function MessageInput({
       if (!res?.id) throw new Error(res?.message ?? "Send failed");
       replaceMessageStore(channelId, tempId, res);
       // The real message carries CDN urls now, so the previews are free.
-      snapFiles.forEach((f) => revokeUrl(f.url));
+      snapFiles.forEach((f) => {
+        revokeUrl(f.url);
+      });
     } catch (e) {
       // Leave the object urls alive: the failed message still renders them.
       markMessageFailedStore(channelId, tempId);
@@ -453,7 +484,13 @@ export function MessageInput({
 
   async function sendSticker(stickerId: string) {
     const p = async () => {
-      const res = await sendMessage(channelId, false, undefined, undefined, stickerId);
+      const res = await sendMessage(
+        channelId,
+        false,
+        undefined,
+        undefined,
+        stickerId,
+      );
       if (!res?.id) throw new Error(res?.message ?? "Send failed");
       setStickerOpen(false);
     };
@@ -491,7 +528,9 @@ export function MessageInput({
       {trigger.char && (
         <div className="absolute bottom-full mb-2 left-0 right-0 mx-3 border bg-popover rounded-md shadow-lg z-30 overflow-hidden">
           <div className="px-3 py-1 border-b text-[10px] uppercase tracking-[0.18em] font-mono text-muted-foreground flex items-center justify-between">
-            <span>{trigger.char === "@" ? "Members matching" : "Channels matching"}</span>
+            <span>
+              {trigger.char === "@" ? "Members matching" : "Channels matching"}
+            </span>
             <span className="text-foreground/60">
               {trigger.query ? `"${trigger.query}"` : "any"}
             </span>
@@ -506,50 +545,62 @@ export function MessageInput({
             </div>
           ) : (
             <div className="max-h-64 overflow-y-auto">
-            {suggestions.map((s, i) => {
-              const active = i === safeActiveSugg;
-              return (
-                <button
-                  key={`${s.type}-${s.id}`}
-                  type="button"
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    applySuggestion(s);
-                  }}
-                  onMouseEnter={() => setActiveSugg(i)}
-                  className={cn(
-                    "w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left transition-colors",
-                    active
-                      ? "bg-[oklch(0.7686_0.1647_70.08/0.15)] text-foreground"
-                      : "hover:bg-muted/40",
-                  )}
-                >
-                  {s.type === "user" ? (
-                    <DiscordAvatar src={s.avatar ?? "/discord.svg"} alt={s.label} size={20} />
-                  ) : (
-                    <Hash className="size-4 text-muted-foreground shrink-0" />
-                  )}
-                  <span
-                    className="font-medium truncate"
-                    style={s.color ? { color: s.color } : undefined}
+              {suggestions.map((s, i) => {
+                const active = i === safeActiveSugg;
+                return (
+                  <button
+                    key={`${s.type}-${s.id}`}
+                    type="button"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      applySuggestion(s);
+                    }}
+                    onMouseEnter={() => setActiveSugg(i)}
+                    className={cn(
+                      "w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left transition-colors",
+                      active
+                        ? "bg-[oklch(0.7686_0.1647_70.08/0.15)] text-foreground"
+                        : "hover:bg-muted/40",
+                    )}
                   >
-                    {s.label}
-                  </span>
-                  {s.sub && (
-                    <span className="text-xs text-muted-foreground truncate">{s.sub}</span>
-                  )}
-                  <span className="ml-auto text-[10px] font-mono text-muted-foreground/70 shrink-0">
-                    {s.id.slice(-6)}
-                  </span>
-                </button>
-              );
-            })}
+                    {s.type === "user" ? (
+                      <DiscordAvatar
+                        src={s.avatar ?? "/discord.svg"}
+                        alt={s.label}
+                        size={20}
+                      />
+                    ) : (
+                      <Hash className="size-4 text-muted-foreground shrink-0" />
+                    )}
+                    <span
+                      className="font-medium truncate"
+                      style={s.color ? { color: s.color } : undefined}
+                    >
+                      {s.label}
+                    </span>
+                    {s.sub && (
+                      <span className="text-xs text-muted-foreground truncate">
+                        {s.sub}
+                      </span>
+                    )}
+                    <span className="ml-auto text-[10px] font-mono text-muted-foreground/70 shrink-0">
+                      {s.id.slice(-6)}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           )}
           <div className="px-3 py-1 border-t text-[10px] font-mono text-muted-foreground flex items-center gap-3">
-            <span><kbd className="font-mono">↑↓</kbd> nav</span>
-            <span><kbd className="font-mono">↵</kbd> select</span>
-            <span><kbd className="font-mono">esc</kbd> dismiss</span>
+            <span>
+              <kbd className="font-mono">↑↓</kbd> nav
+            </span>
+            <span>
+              <kbd className="font-mono">↵</kbd> select
+            </span>
+            <span>
+              <kbd className="font-mono">esc</kbd> dismiss
+            </span>
           </div>
         </div>
       )}
@@ -558,7 +609,9 @@ export function MessageInput({
           <CornerUpLeft className="size-3" />
           <span className="text-muted-foreground">Replying to</span>
           <span className="font-medium">{reply.author}</span>
-          <span className="text-muted-foreground truncate flex-1">{reply.content}</span>
+          <span className="text-muted-foreground truncate flex-1">
+            {reply.content}
+          </span>
           <Button
             size="icon"
             variant="ghost"
@@ -587,7 +640,9 @@ export function MessageInput({
               ) : (
                 <div className="flex flex-col items-center justify-center h-full p-1 text-center">
                   <Paperclip className="size-4 text-muted-foreground" />
-                  <span className="text-[9px] truncate w-full">{f.file.name}</span>
+                  <span className="text-[9px] truncate w-full">
+                    {f.file.name}
+                  </span>
                 </div>
               )}
               <Button
@@ -620,7 +675,9 @@ export function MessageInput({
             }
             if (e.key === "ArrowUp") {
               e.preventDefault();
-              setActiveSugg((i) => (i - 1 + suggestions.length) % suggestions.length);
+              setActiveSugg(
+                (i) => (i - 1 + suggestions.length) % suggestions.length,
+              );
               return;
             }
             if (e.key === "Enter" || e.key === "Tab") {
@@ -645,7 +702,12 @@ export function MessageInput({
       <div className="flex items-center gap-1 px-2 pt-1 pb-2 flex-wrap">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button size="icon" variant="ghost" className="text-muted-foreground" disabled={!canSend}>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="text-muted-foreground"
+              disabled={!canSend}
+            >
               <Plus className="size-4" />
             </Button>
           </DropdownMenuTrigger>
@@ -684,7 +746,12 @@ export function MessageInput({
         </Tooltip>
         <Popover open={emojiOpen} onOpenChange={setEmojiOpen}>
           <PopoverTrigger asChild>
-            <Button size="icon" variant="ghost" className="text-muted-foreground" disabled={!canSend}>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="text-muted-foreground"
+              disabled={!canSend}
+            >
               <SmilePlus className="size-4" />
             </Button>
           </PopoverTrigger>
@@ -700,22 +767,34 @@ export function MessageInput({
         </Popover>
         <Popover open={stickerOpen} onOpenChange={setStickerOpen}>
           <PopoverTrigger asChild>
-            <Button size="icon" variant="ghost" className="text-muted-foreground" disabled={!canSend}>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="text-muted-foreground"
+              disabled={!canSend}
+            >
               <Sticker className="size-4" />
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-fit p-0" align="end">
-            <StickerList serverId={serverId} onStickerSelectAction={sendSticker} />
+            <StickerList
+              serverId={serverId}
+              onStickerSelectAction={sendSticker}
+            />
           </PopoverContent>
         </Popover>
         <div className="flex-1" />
         {slowmode > 0 && (
-          <span className="text-[10px] text-muted-foreground font-mono">{slowmode}s slow</span>
+          <span className="text-[10px] text-muted-foreground font-mono">
+            {slowmode}s slow
+          </span>
         )}
         {!canEmbed && canSend && (
           <Tooltip>
             <TooltipTrigger asChild>
-              <span className="text-[10px] text-muted-foreground">no embeds</span>
+              <span className="text-[10px] text-muted-foreground">
+                no embeds
+              </span>
             </TooltipTrigger>
             <TooltipContent>Bot lacks Embed Links permission</TooltipContent>
           </Tooltip>
