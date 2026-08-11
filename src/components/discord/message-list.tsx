@@ -45,6 +45,7 @@ import {
   Ban,
   Reply,
   MoreHorizontal,
+  MessageSquare,
   SmilePlus,
 } from "lucide-react";
 import {
@@ -69,6 +70,8 @@ import { MessageItem } from "@/components/discord/message";
 import { UserProfilePopover } from "@/components/discord/user-profile-popover";
 import { IntentBanner } from "@/components/discord/intent-warning";
 import { useRealtimeStore } from "@/lib/store";
+import { useOpenDm } from "@/hooks/use-open-dm";
+import { parseEmojiToken } from "@/lib/discord/emoji";
 import type { GuildMember, Message } from "@/lib/discord/types";
 import type { ReplyTarget } from "@/components/discord/message-input";
 import { DiscordAvatar } from "@/components/ui/discord-avatar";
@@ -81,12 +84,53 @@ function isSent(msg: Message): boolean {
   return !msg.__pending && !msg.__failed;
 }
 
+/** True when `m` is the first message of a calendar day in this list. */
+function startsNewDay(prev: Message | undefined, m: Message): boolean {
+  if (!prev) return false;
+  return (
+    new Date(prev.timestamp).toDateString() !==
+    new Date(m.timestamp).toDateString()
+  );
+}
+
+const DAY_FORMAT: Intl.DateTimeFormatOptions = {
+  weekday: "long",
+  month: "long",
+  day: "numeric",
+  year: "numeric",
+};
+
+function DayDivider({ timestamp }: { timestamp: string }) {
+  const date = new Date(timestamp);
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+  const label =
+    date.toDateString() === today.toDateString()
+      ? "Today"
+      : date.toDateString() === yesterday.toDateString()
+        ? "Yesterday"
+        : date.toLocaleDateString(undefined, DAY_FORMAT);
+  return (
+    <div className="flex items-center gap-3 px-4 pt-4 pb-1 select-none">
+      <div className="h-px flex-1 bg-border" />
+      <span className="text-[10px] font-mono uppercase tracking-[0.18em] text-muted-foreground">
+        {label}
+      </span>
+      <div className="h-px flex-1 bg-border" />
+    </div>
+  );
+}
+
 interface Props {
   channelId: string;
-  serverId: string;
+  /** Absent in a DM. */
+  serverId?: string;
   channelName?: string;
   postStarterId?: string;
   onReply: (target: ReplyTarget) => void;
+  /** Rendered above the composer-facing end of the list when set. */
+  emptyState?: React.ReactNode;
 }
 
 export function MessageList({
@@ -94,12 +138,19 @@ export function MessageList({
   serverId,
   postStarterId,
   onReply,
+  emptyState,
 }: Props) {
   const messages = useRealtimeStore((s) => s.messages.get(channelId));
-  const roles = useRealtimeStore((s) => s.guilds.get(serverId)?.roles);
-  const channels = useRealtimeStore((s) => s.guilds.get(serverId)?.channels);
+  const roles = useRealtimeStore((s) =>
+    serverId ? s.guilds.get(serverId)?.roles : undefined,
+  );
+  const channels = useRealtimeStore((s) =>
+    serverId ? s.guilds.get(serverId)?.channels : undefined,
+  );
   const typingMap = useRealtimeStore((s) => s.typing.get(channelId));
-  const members = useRealtimeStore((s) => s.members.get(serverId));
+  const members = useRealtimeStore((s) =>
+    serverId ? s.members.get(serverId) : undefined,
+  );
   const setMessages = useRealtimeStore((s) => s.setMessages);
   const openChannel = useRealtimeStore((s) => s.openChannel);
   const prepend = useRealtimeStore((s) => s.prependMessages);
@@ -118,10 +169,14 @@ export function MessageList({
   const canBan = can(guildPerms, "Ban Members");
   const canTimeout = can(guildPerms, "Moderate Members");
   const guild = useMemo(
-    () => ({ id: serverId, name: "", features: [], roles, channels }),
+    () =>
+      serverId
+        ? { id: serverId, name: "", features: [], roles, channels }
+        : undefined,
     [serverId, roles, channels],
   );
 
+  const openDmWith = useOpenDm();
   const [hydrating, setHydrating] = useState(!messages);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [exhausted, setExhausted] = useState(false);
@@ -165,6 +220,23 @@ export function MessageList({
   );
 
   const cancelEdit = useCallback(() => setEditingId(null), []);
+
+  const reactWith = useCallback(
+    async (messageId: string, token: string) => {
+      const { key, emoji } = parseEmojiToken(token);
+      addReactionStore(channelId, messageId, emoji, true);
+      markReactionPending(channelId, messageId, emoji, true);
+      try {
+        await addReaction(channelId, messageId, key);
+      } catch (e) {
+        removeReactionStore(channelId, messageId, emoji, true);
+        toast.error(e instanceof Error ? e.message : "Failed to add reaction");
+      } finally {
+        markReactionPending(channelId, messageId, emoji, false);
+      }
+    },
+    [channelId, addReactionStore, markReactionPending, removeReactionStore],
+  );
 
   const jumpTo = useCallback((id: string) => {
     const el = scrollRef.current?.querySelector(
@@ -211,6 +283,10 @@ export function MessageList({
     })();
     return () => {
       alive = false;
+      // Leaving the channel makes its incoming messages unread again.
+      if (useRealtimeStore.getState().activeChannelId === channelId) {
+        useRealtimeStore.getState().setActiveChannel(null);
+      }
     };
   }, [channelId, setMessages, openChannel]);
 
@@ -316,8 +392,12 @@ export function MessageList({
     }
   }
 
+  // Moderation only exists inside a guild. The controls are already hidden
+  // in a DM, where guild permissions resolve to none; these guards keep the
+  // types honest rather than defending against a reachable case.
   const timeoutMember = useCallback(
     (userId: string, minutes: number | null) => {
+      if (!serverId) return;
       const p = async () => {
         const iso =
           minutes == null
@@ -337,6 +417,7 @@ export function MessageList({
 
   const kickMember = useCallback(
     (userId: string) => {
+      if (!serverId) return;
       if (!canKick) {
         toast.error("Bot lacks Kick Members permission");
         return;
@@ -352,6 +433,7 @@ export function MessageList({
 
   const banMember = useCallback(
     (userId: string) => {
+      if (!serverId) return;
       if (!canBan) {
         toast.error("Bot lacks Ban Members permission");
         return;
@@ -436,27 +518,7 @@ export function MessageList({
               <PopoverContent className="w-fit p-0" align="end">
                 <EmojiPickerPro
                   guildId={serverId}
-                  onSelect={async (token) => {
-                    const m = token.match(/^<(a)?:([\w~]+):(\d+)>$/);
-                    const key = m ? `${m[2]}:${m[3]}` : token;
-                    const emoji = m
-                      ? { id: m[3], name: m[2], animated: !!m[1] }
-                      : { id: null, name: token };
-                    addReactionStore(channelId, msg.id, emoji, true);
-                    markReactionPending(channelId, msg.id, emoji, true);
-                    try {
-                      await addReaction(channelId, msg.id, key);
-                    } catch (e) {
-                      removeReactionStore(channelId, msg.id, emoji, true);
-                      toast.error(
-                        e instanceof Error
-                          ? e.message
-                          : "Failed to add reaction",
-                      );
-                    } finally {
-                      markReactionPending(channelId, msg.id, emoji, false);
-                    }
-                  }}
+                  onSelect={(token) => reactWith(msg.id, token)}
                 />
               </PopoverContent>
             </Popover>
@@ -518,14 +580,11 @@ export function MessageList({
     },
     [
       onReply,
-      channelId,
       canManageMessages,
       togglePin,
       serverId,
       botUserId,
-      addReactionStore,
-      markReactionPending,
-      removeReactionStore,
+      reactWith,
       deleteMsg,
       canReact,
     ],
@@ -618,103 +677,119 @@ export function MessageList({
   );
 
   const renderNameWrapper = useCallback(
-    (msg: Message, children: React.ReactNode) => (
-      <UserProfilePopover
-        guildId={serverId}
-        userId={msg.author.id}
-        trigger={children}
-      />
-    ),
+    (msg: Message, children: React.ReactNode) =>
+      serverId ? (
+        <UserProfilePopover
+          guildId={serverId}
+          userId={msg.author.id}
+          trigger={children}
+        />
+      ) : (
+        children
+      ),
     [serverId],
   );
 
   const renderAuthorMenu = useCallback(
-    (msg: Message) => (
-      <ContextMenu>
-        <UserProfilePopover
-          guildId={serverId}
-          userId={msg.author.id}
-          trigger={
-            <ContextMenuTrigger asChild>
-              <button type="button">
-                <DiscordAvatar
-                  src={avatarUrl(msg.author.id, msg.author.avatar)}
-                  alt={msg.author.username}
-                  size={36}
-                />
-              </button>
-            </ContextMenuTrigger>
-          }
+    (msg: Message) =>
+      !serverId ? (
+        <DiscordAvatar
+          src={avatarUrl(msg.author.id, msg.author.avatar)}
+          alt={msg.author.username}
+          size={36}
         />
-        <ContextMenuContent className="bg-sidebar font-mono tracking-tighter">
-          {!msg.author.bot && (canTimeout || canKick || canBan) && (
-            <>
-              <ContextMenuGroup>
-                {canTimeout && (
-                  <ContextMenuSub>
-                    <ContextMenuSubTrigger>
-                      <ClockPlus />
-                      Timeout
-                    </ContextMenuSubTrigger>
-                    <ContextMenuSubContent className="bg-sidebar">
-                      {[1, 5, 10, 60, 1440, 10080].map((min) => (
+      ) : (
+        <ContextMenu>
+          <UserProfilePopover
+            guildId={serverId}
+            userId={msg.author.id}
+            trigger={
+              <ContextMenuTrigger asChild>
+                <button type="button">
+                  <DiscordAvatar
+                    src={avatarUrl(msg.author.id, msg.author.avatar)}
+                    alt={msg.author.username}
+                    size={36}
+                  />
+                </button>
+              </ContextMenuTrigger>
+            }
+          />
+          <ContextMenuContent className="bg-sidebar font-mono tracking-tighter">
+            {!msg.author.bot && (canTimeout || canKick || canBan) && (
+              <>
+                <ContextMenuGroup>
+                  {canTimeout && (
+                    <ContextMenuSub>
+                      <ContextMenuSubTrigger>
+                        <ClockPlus />
+                        Timeout
+                      </ContextMenuSubTrigger>
+                      <ContextMenuSubContent className="bg-sidebar">
+                        {[1, 5, 10, 60, 1440, 10080].map((min) => (
+                          <ContextMenuItem
+                            key={min}
+                            onSelect={() => timeoutMember(msg.author.id, min)}
+                          >
+                            {min < 60
+                              ? `${min} min`
+                              : min < 1440
+                                ? `${min / 60} hr`
+                                : `${min / 1440} day`}
+                          </ContextMenuItem>
+                        ))}
+                        <ContextMenuSeparator />
                         <ContextMenuItem
-                          key={min}
-                          onSelect={() => timeoutMember(msg.author.id, min)}
+                          variant="destructive"
+                          onSelect={() => timeoutMember(msg.author.id, null)}
                         >
-                          {min < 60
-                            ? `${min} min`
-                            : min < 1440
-                              ? `${min / 60} hr`
-                              : `${min / 1440} day`}
+                          Remove timeout
                         </ContextMenuItem>
-                      ))}
-                      <ContextMenuSeparator />
-                      <ContextMenuItem
-                        variant="destructive"
-                        onSelect={() => timeoutMember(msg.author.id, null)}
-                      >
-                        Remove timeout
-                      </ContextMenuItem>
-                    </ContextMenuSubContent>
-                  </ContextMenuSub>
-                )}
-                {canKick && (
-                  <ContextMenuItem
-                    variant="destructive"
-                    onSelect={() => kickMember(msg.author.id)}
-                  >
-                    <UserRoundMinus /> Kick
-                  </ContextMenuItem>
-                )}
-                {canBan && (
-                  <ContextMenuItem
-                    variant="destructive"
-                    onSelect={() => banMember(msg.author.id)}
-                  >
-                    <Ban /> Ban
-                  </ContextMenuItem>
-                )}
-              </ContextMenuGroup>
-              <ContextMenuSeparator />
-            </>
-          )}
-          <ContextMenuGroup>
-            <CopyUsername username={msg.author.username} />
-            <CopyID id={msg.author.id} />
-            <Link
-              href={`https://id.uncoverit.org?id=${msg.author.id}`}
-              target="_blank"
-            >
-              <ContextMenuItem>
-                <ExternalLink />
-                Lookup ID
-              </ContextMenuItem>
-            </Link>
-          </ContextMenuGroup>
-        </ContextMenuContent>
-      </ContextMenu>
-    ),
+                      </ContextMenuSubContent>
+                    </ContextMenuSub>
+                  )}
+                  {canKick && (
+                    <ContextMenuItem
+                      variant="destructive"
+                      onSelect={() => kickMember(msg.author.id)}
+                    >
+                      <UserRoundMinus /> Kick
+                    </ContextMenuItem>
+                  )}
+                  {canBan && (
+                    <ContextMenuItem
+                      variant="destructive"
+                      onSelect={() => banMember(msg.author.id)}
+                    >
+                      <Ban /> Ban
+                    </ContextMenuItem>
+                  )}
+                </ContextMenuGroup>
+                <ContextMenuSeparator />
+              </>
+            )}
+            <ContextMenuGroup>
+              {!msg.author.bot && (
+                <ContextMenuItem onSelect={() => openDmWith(msg.author)}>
+                  <MessageSquare />
+                  Message directly
+                </ContextMenuItem>
+              )}
+              <CopyUsername username={msg.author.username} />
+              <CopyID id={msg.author.id} />
+              <Link
+                href={`https://id.uncoverit.org?id=${msg.author.id}`}
+                target="_blank"
+              >
+                <ContextMenuItem>
+                  <ExternalLink />
+                  Lookup ID
+                </ContextMenuItem>
+              </Link>
+            </ContextMenuGroup>
+          </ContextMenuContent>
+        </ContextMenu>
+      ),
     [
       serverId,
       timeoutMember,
@@ -723,6 +798,7 @@ export function MessageList({
       canTimeout,
       canKick,
       canBan,
+      openDmWith,
     ],
   );
 
@@ -841,8 +917,10 @@ export function MessageList({
             Beginning of channel
           </div>
         )}
+        {ordered.length === 0 && emptyState}
         <div ref={innerRef}>
           {ordered.map((m, i) => {
+            const prev = ordered[i - 1];
             const refAuthor = m.referenced_message?.author?.id;
             const replyToBot = !!botUserId && refAuthor === botUserId;
             const directMention =
@@ -852,11 +930,19 @@ export function MessageList({
               m.author.id !== botUserId &&
               (directMention || replyToBot);
             const isPostStarter = !!postStarterId && m.id === postStarterId;
+            const daySplit = startsNewDay(prev, m);
             return (
-              <div key={m.id}>
+              // Containment scopes layout, style and paint invalidation to the
+              // row, so one arriving message does not make the browser
+              // reconsider the whole list. Deliberately not
+              // `content-visibility: auto`: that replaces off-screen rows with
+              // a placeholder height, which would break the scroll-position
+              // restore in loadOlder.
+              <div key={m.id} className="[contain:layout_style_paint]">
+                {daySplit && <DayDivider timestamp={m.timestamp} />}
                 <MessageItem
                   message={m}
-                  prev={ordered[i - 1]}
+                  prev={daySplit ? undefined : prev}
                   guild={guild}
                   guildId={serverId}
                   selfUserId={botUserId}
@@ -864,6 +950,8 @@ export function MessageList({
                   mentionsMe={mentionsMe}
                   isPostStarter={isPostStarter}
                   editing={editingId === m.id}
+                  canReact={canReact}
+                  canManage={canManageMessages}
                   onEditSave={commitEdit}
                   onEditCancel={cancelEdit}
                   onJumpReply={jumpTo}
@@ -914,27 +1002,10 @@ export function MessageList({
           <div className="relative bg-popover border rounded-md shadow-lg max-w-[calc(100vw-2rem)]">
             <EmojiPickerPro
               guildId={serverId}
-              onSelect={async (token) => {
+              onSelect={(token) => {
                 const id = reactingId;
                 setReactingId(null);
-                if (!id) return;
-                const m = token.match(/^<(a)?:([\w~]+):(\d+)>$/);
-                const key = m ? `${m[2]}:${m[3]}` : token;
-                const emoji = m
-                  ? { id: m[3], name: m[2], animated: !!m[1] }
-                  : { id: null, name: token };
-                addReactionStore(channelId, id, emoji, true);
-                markReactionPending(channelId, id, emoji, true);
-                try {
-                  await addReaction(channelId, id, key);
-                } catch (e) {
-                  removeReactionStore(channelId, id, emoji, true);
-                  toast.error(
-                    e instanceof Error ? e.message : "Failed to add reaction",
-                  );
-                } finally {
-                  markReactionPending(channelId, id, emoji, false);
-                }
+                if (id) reactWith(id, token);
               }}
             />
           </div>

@@ -10,6 +10,7 @@ import {
   SendHorizontal,
   SmilePlus,
   Sticker,
+  TimerOff,
   X,
 } from "lucide-react";
 import Spinner from "@/components/ui/spinner";
@@ -47,6 +48,7 @@ import type { GuildMember } from "@/lib/discord/types";
 import { useRealtimeStore } from "@/lib/store";
 import { useChannelPermissions } from "@/hooks/use-permissions";
 import { useHydrated } from "@/hooks/use-hydrated";
+import { formatCountdown, useSelfTimeout } from "@/hooks/use-self-timeout";
 import { can } from "@/lib/discord/permissions";
 import { CHANNEL_TYPE } from "@/lib/discord/constants";
 import { toast } from "sonner";
@@ -66,7 +68,8 @@ export interface ReplyTarget {
 
 interface Props {
   channelId: string;
-  serverId: string;
+  /** Absent in a DM. */
+  serverId?: string;
   channelName?: string;
   reply?: ReplyTarget | null;
   onClearReply?: () => void;
@@ -104,11 +107,18 @@ export function MessageInput({
   const lastTyping = useRef(0);
   const taRef = useRef<HTMLTextAreaElement>(null);
 
-  const guild = useRealtimeStore((s) => s.guilds.get(serverId));
+  const guild = useRealtimeStore((s) =>
+    serverId ? s.guilds.get(serverId) : undefined,
+  );
   const guildRoles = useMemo(() => guild?.roles ?? [], [guild?.roles]);
-  const membersRaw = useRealtimeStore((s) => s.members.get(serverId));
+  const membersRaw = useRealtimeStore((s) =>
+    serverId ? s.members.get(serverId) : undefined,
+  );
   const members = useMemo(() => membersRaw ?? [], [membersRaw]);
   const channels = useMemo(() => guild?.channels ?? [], [guild?.channels]);
+  const dmChannel = useRealtimeStore((s) =>
+    serverId ? undefined : s.dms.get(channelId),
+  );
   const channelMessages = useRealtimeStore((s) => s.messages.get(channelId));
   const upsertMember = useRealtimeStore((s) => s.upsertMember);
   const me = useRealtimeStore((s) => s.user);
@@ -132,8 +142,17 @@ export function MessageInput({
   }, [channelMessages]);
   const perms = useChannelPermissions(serverId, channelId);
   const hydrated = useHydrated();
-  const canSend = hydrated ? can(perms, "Send Messages") : true;
-  const canAttach = hydrated ? can(perms, "Attach Files") : true;
+  // The composer is where a timeout actually bites, so this is the one place
+  // that pays for a lookup when the store has not seen the bot's member yet.
+  const timeout = useSelfTimeout(serverId, { fetch: true });
+  // A timeout is enforced server-side, so treating it as anything other than
+  // "cannot send" would just produce 403s the user has to decode.
+  const canSend = hydrated
+    ? can(perms, "Send Messages") && !timeout.active
+    : true;
+  const canAttach = hydrated
+    ? can(perms, "Attach Files") && !timeout.active
+    : true;
   const canEmbed = hydrated ? can(perms, "Embed Links") : true;
   const slowmode =
     channels.find((c) => c.id === channelId)?.rate_limit_per_user ?? 0;
@@ -343,7 +362,7 @@ export function MessageInput({
   membersLenRef.current = members.length;
 
   useEffect(() => {
-    if (trigger.char !== "@") return;
+    if (trigger.char !== "@" || !serverId) return;
     let alive = true;
     const handle = window.setTimeout(async () => {
       try {
@@ -518,13 +537,30 @@ export function MessageInput({
     });
   }
 
+  const dmName = dmChannel?.recipients?.[0];
   const placeholder = useMemo(() => {
+    if (timeout.active) return "Timed out. You cannot send messages right now";
     if (!canSend) return "Bot can't send messages here";
+    if (dmName) return `Message ${dmName.global_name ?? dmName.username}`;
     return channelName ? `Message #${channelName}` : "Type something…";
-  }, [canSend, channelName]);
+  }, [canSend, channelName, timeout.active, dmName]);
 
   return (
-    <div className="border rounded-xl bg-background relative">
+    <div
+      className={cn(
+        "border rounded-xl bg-background relative",
+        timeout.active && "border-destructive/40",
+      )}
+    >
+      {timeout.active && (
+        <div className="flex items-center gap-2 px-3 py-1.5 border-b border-destructive/30 bg-destructive/10 text-xs text-destructive rounded-t-xl">
+          <TimerOff className="size-3.5 shrink-0" />
+          <span className="font-medium">Timed out in this server</span>
+          <span className="ml-auto font-mono tabular-nums">
+            {formatCountdown(timeout.msLeft)} left
+          </span>
+        </div>
+      )}
       {trigger.char && (
         <div className="absolute bottom-full mb-2 left-0 right-0 mx-3 border bg-popover rounded-md shadow-lg z-30 overflow-hidden">
           <div className="px-3 py-1 border-b text-[10px] uppercase tracking-[0.18em] font-mono text-muted-foreground flex items-center justify-between">
@@ -765,24 +801,26 @@ export function MessageInput({
             />
           </PopoverContent>
         </Popover>
-        <Popover open={stickerOpen} onOpenChange={setStickerOpen}>
-          <PopoverTrigger asChild>
-            <Button
-              size="icon"
-              variant="ghost"
-              className="text-muted-foreground"
-              disabled={!canSend}
-            >
-              <Sticker className="size-4" />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-fit p-0" align="end">
-            <StickerList
-              serverId={serverId}
-              onStickerSelectAction={sendSticker}
-            />
-          </PopoverContent>
-        </Popover>
+        {serverId && (
+          <Popover open={stickerOpen} onOpenChange={setStickerOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="text-muted-foreground"
+                disabled={!canSend}
+              >
+                <Sticker className="size-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-fit p-0" align="end">
+              <StickerList
+                serverId={serverId}
+                onStickerSelectAction={sendSticker}
+              />
+            </PopoverContent>
+          </Popover>
+        )}
         <div className="flex-1" />
         {slowmode > 0 && (
           <span className="text-[10px] text-muted-foreground font-mono">

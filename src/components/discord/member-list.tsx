@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import { TimerOff } from "lucide-react";
 import { useRealtimeStore } from "@/lib/store";
 import { Input } from "@/components/ui/input";
 import { DiscordAvatar } from "@/components/ui/discord-avatar";
@@ -241,6 +242,10 @@ export function MemberList({ guildId }: Props) {
           if (!u) return null;
           const name = member.nick ?? u.global_name ?? u.username;
           const status = presence?.status ?? "offline";
+          const timedOut = member.communication_disabled_until
+            ? new Date(member.communication_disabled_until).getTime() >
+              Date.now()
+            : false;
           return (
             <UserProfilePopover
               key={`${row.groupKey}-${u.id}`}
@@ -274,6 +279,12 @@ export function MemberList({ guildId }: Props) {
                   >
                     {name}
                   </span>
+                  {timedOut && (
+                    <TimerOff
+                      className="size-3 text-destructive shrink-0"
+                      aria-label="Timed out"
+                    />
+                  )}
                   {u.bot && (
                     <span className="px-1 rounded bg-blue-500 text-white text-[8px] font-bold">
                       BOT

@@ -15,6 +15,7 @@ import {
   Mic,
   Radio,
   Settings,
+  TimerOff,
 } from "lucide-react";
 import {
   Sidebar,
@@ -58,6 +59,7 @@ import {
 } from "@/components/ui/context-menu";
 import Image from "next/image";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import Logo from "../../public/logo.png";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { BotSettings } from "@/components/settings";
@@ -67,17 +69,42 @@ import { useRealtimeStore } from "@/lib/store";
 import { CHANNEL_TYPE } from "@/lib/discord/constants";
 import { can, listPermissions } from "@/lib/discord/permissions";
 import { useGuildPermissions } from "@/hooks/use-permissions";
+import { formatCountdown, useSelfTimeout } from "@/hooks/use-self-timeout";
 import { ChannelSettingsDialog } from "@/components/discord/channel-settings-dialog";
+import { DirectMessagesSection } from "@/components/discord/dm-sidebar-section";
+import { UnreadBadge } from "@/components/discord/unread-badge";
+import { Input } from "@/components/ui/input";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { avatarUrl, guildIconUrl } from "@/lib/discord/cdn";
+import { cn } from "@/lib/utils";
 import type { Channel, Guild } from "@/lib/discord/types";
 
 const SKELETON_ROWS = ["s1", "s2", "s3", "s4", "s5"];
+
+/** Matches a guild when its own name matches, or any of its channels do. */
+function matchesFilter(guild: Guild, needle: string): boolean {
+  if (!needle) return true;
+  if (guild.name.toLowerCase().includes(needle)) return true;
+  return (guild.channels ?? []).some((c) =>
+    c.name?.toLowerCase().includes(needle),
+  );
+}
 
 export function AppSidebar() {
   const guildsMap = useRealtimeStore((s) => s.guilds);
   const user = useRealtimeStore((s) => s.user);
   const upsertGuild = useRealtimeStore((s) => s.upsertGuild);
+  const [filter, setFilter] = useState("");
+  const needle = filter.trim().toLowerCase();
   const guilds = useMemo(() => Array.from(guildsMap.values()), [guildsMap]);
+  const visible = useMemo(
+    () => guilds.filter((g) => matchesFilter(g, needle)),
+    [guilds, needle],
+  );
 
   useEffect(() => {
     let alive = true;
@@ -120,6 +147,18 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent className="pt-1">
+        <div className="px-4 pb-1">
+          <Input
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            placeholder="Filter servers and channels"
+            aria-label="Filter servers and channels"
+            className="h-9 md:h-8 text-base md:text-xs"
+          />
+        </div>
+        <SidebarMenu>
+          <DirectMessagesSection />
+        </SidebarMenu>
         {guilds.length === 0 ? (
           <SidebarMenu>
             {SKELETON_ROWS.map((id) => (
@@ -130,8 +169,13 @@ export function AppSidebar() {
           </SidebarMenu>
         ) : (
           <SidebarMenu>
-            {guilds.map((g) => (
-              <ServerItem key={g.id} guild={g} />
+            {visible.length === 0 && (
+              <p className="px-4 py-2 text-xs text-muted-foreground">
+                Nothing matches “{filter}”.
+              </p>
+            )}
+            {visible.map((g) => (
+              <ServerItem key={g.id} guild={g} channelFilter={needle} />
             ))}
           </SidebarMenu>
         )}
@@ -207,7 +251,13 @@ export function AppSidebar() {
   );
 }
 
-function ServerItem({ guild }: { guild: Guild }) {
+function ServerItem({
+  guild,
+  channelFilter,
+}: {
+  guild: Guild;
+  channelFilter: string;
+}) {
   const icon = useMemo(
     () => guildIconUrl(guild.id, guild.icon),
     [guild.id, guild.icon],
@@ -215,6 +265,10 @@ function ServerItem({ guild }: { guild: Guild }) {
   // Resolved once per guild rather than once per channel row.
   const perms = useGuildPermissions(guild.id);
   const canManageChannels = can(perms, "Manage Channels");
+  const timeout = useSelfTimeout(guild.id);
+  // Filtering forces the guild open so matching channels are actually
+  // visible, then hands control back once the box is cleared.
+  const [open, setOpen] = useState(false);
   const enabledPerms = useMemo(
     () => (guild.permissions ? listPermissions(guild.permissions) : []),
     [guild.permissions],
@@ -247,8 +301,18 @@ function ServerItem({ guild }: { guild: Guild }) {
       .filter((c) => !c.parent_id)
       .slice()
       .sort(byChannelOrder);
-    return { categories: grouped, uncategorized: uncat };
-  }, [guild.channels]);
+    if (!channelFilter || guild.name.toLowerCase().includes(channelFilter)) {
+      return { categories: grouped, uncategorized: uncat };
+    }
+    // The guild matched only through its channels, so show just those.
+    const keep = (c: Channel) => c.name?.toLowerCase().includes(channelFilter);
+    return {
+      categories: grouped
+        .map((g) => ({ ...g, children: g.children.filter(keep) }))
+        .filter((g) => g.children.length > 0),
+      uncategorized: uncat.filter(keep),
+    };
+  }, [guild.channels, guild.name, channelFilter]);
 
   const firstInvitable = (guild.channels ?? []).find(
     (c) =>
@@ -258,7 +322,12 @@ function ServerItem({ guild }: { guild: Guild }) {
   );
 
   return (
-    <Collapsible asChild className="group/collapsible px-2">
+    <Collapsible
+      asChild
+      className="group/collapsible px-2"
+      open={channelFilter ? true : open}
+      onOpenChange={setOpen}
+    >
       <SidebarMenuItem>
         <ContextMenu>
           <ContextMenuTrigger asChild>
@@ -271,7 +340,10 @@ function ServerItem({ guild }: { guild: Guild }) {
                     width={32}
                     height={32}
                     unoptimized
-                    className="rounded-lg"
+                    className={cn(
+                      "rounded-lg",
+                      timeout.active && "opacity-60 grayscale",
+                    )}
                     style={{ width: 32, height: 32 }}
                   />
                 ) : (
@@ -282,6 +354,19 @@ function ServerItem({ guild }: { guild: Guild }) {
                 <span className="text-md ml-1 flex font-medium truncate">
                   {guild.name}
                 </span>
+                {timeout.active && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="shrink-0 inline-flex items-center gap-1 px-1 py-0.5 rounded bg-destructive/15 text-destructive text-[9px] font-mono font-semibold tabular-nums">
+                        <TimerOff className="size-2.5" />
+                        {formatCountdown(timeout.msLeft)}
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      The bot is timed out here and cannot send messages
+                    </TooltipContent>
+                  </Tooltip>
+                )}
                 <ChevronRight className="ml-auto transition-transform group-data-[state=open]/collapsible:rotate-90" />
               </SidebarMenuButton>
             </CollapsibleTrigger>
@@ -394,6 +479,8 @@ function ChannelLink({
 }) {
   const [editOpen, setEditOpen] = useState(false);
   const { isMobile, setOpenMobile } = useSidebar();
+  const pathname = usePathname();
+  const href = `/dashboard/servers/${guildId}/channels/${channel.id}`;
   const Icon =
     channel.type === CHANNEL_TYPE.GUILD_VOICE
       ? Mic
@@ -410,9 +497,9 @@ function ChannelLink({
     <SidebarMenuSubItem>
       <ContextMenu>
         <ContextMenuTrigger asChild>
-          <SidebarMenuSubButton asChild>
+          <SidebarMenuSubButton asChild isActive={pathname === href}>
             <Link
-              href={`/dashboard/servers/${guildId}/channels/${channel.id}`}
+              href={href}
               className="font-mono min-h-8 flex items-center gap-2 min-w-0"
               title={channel.name}
               onClick={() => {
@@ -421,6 +508,7 @@ function ChannelLink({
             >
               <Icon size={16} className="text-muted-foreground shrink-0" />
               <span className="truncate min-w-0 flex-1">{channel.name}</span>
+              <UnreadBadge channelId={channel.id} />
             </Link>
           </SidebarMenuSubButton>
         </ContextMenuTrigger>

@@ -11,6 +11,7 @@ import type {
   User,
 } from "@/lib/discord/types";
 import type { GatewayState } from "@/lib/discord/gateway";
+import { loadStoredDms, storeDms } from "@/lib/discord/dm-storage";
 
 type ChannelMessages = Map<string, Message[]>;
 type GuildMembers = Map<string, GuildMember[]>;
@@ -34,8 +35,23 @@ interface State {
   /** LRU of opened channels, most recently opened last. */
   channelOrder: string[];
   members: GuildMembers;
+  /**
+   * The bot's own member object per guild, mirrored out of `members` so
+   * permission and timeout lookups are O(1) and do not re-run when an
+   * unrelated member changes.
+   */
+  selfMembers: Map<string, GuildMember>;
   presences: GuildPresences;
   typing: TypingMap;
+  /** Open DM channels, oldest first. Persisted, see dm-storage. */
+  dms: Map<string, Channel>;
+  dmsHydrated: boolean;
+  /** Unread message count per channel, cleared when the channel is opened. */
+  unread: Map<string, number>;
+  /** Channels where an unread message mentions or replies to the bot. */
+  unreadMentions: Set<string>;
+  /** Channel currently on screen. Its messages never count as unread. */
+  activeChannelId: string | null;
   gatewayState: GatewayState;
   pingMs: number;
   activeIntents: number;
@@ -90,6 +106,46 @@ interface State {
   setPresences: (guildId: string, presences: Presence[]) => void;
   setTyping: (channelId: string, userId: string) => void;
   pruneTyping: () => void;
+  hydrateDms: () => void;
+  upsertDm: (c: Channel) => void;
+  removeDm: (channelId: string) => void;
+  bumpUnread: (channelId: string, mention: boolean) => void;
+  setActiveChannel: (channelId: string | null) => void;
+}
+
+/** DM and group DM. Everything else belongs to a guild. */
+function isDmChannel(c: Channel): boolean {
+  return c.type === 1 || c.type === 3;
+}
+
+/**
+ * Keeps `selfMembers[guildId]` pointing at the same object the members list
+ * holds, but only writes a new Map when something consumers care about moved.
+ * Permission resolution and the timeout banner both subscribe here, and a
+ * member chunk landing every 150ms would otherwise re-run them for nothing.
+ */
+function mirrorSelf(
+  state: State,
+  guildId: string,
+  self: GuildMember,
+): Map<string, GuildMember> {
+  const prev = state.selfMembers.get(guildId);
+  if (
+    prev &&
+    prev.communication_disabled_until === self.communication_disabled_until &&
+    sameRoles(prev.roles, self.roles)
+  ) {
+    return state.selfMembers;
+  }
+  const next = new Map(state.selfMembers);
+  next.set(guildId, self);
+  return next;
+}
+
+function sameRoles(a: string[] | undefined, b: string[] | undefined): boolean {
+  if (a === b) return true;
+  if (!a || !b || a.length !== b.length) return false;
+  return a.every((r, i) => r === b[i]);
 }
 
 export const useRealtimeStore = create<State>((set) => ({
@@ -98,13 +154,30 @@ export const useRealtimeStore = create<State>((set) => ({
   messages: new Map(),
   channelOrder: [],
   members: new Map(),
+  selfMembers: new Map(),
   presences: new Map(),
   typing: new Map(),
+  dms: new Map(),
+  dmsHydrated: false,
+  unread: new Map(),
+  unreadMentions: new Set(),
+  activeChannelId: null,
   gatewayState: "idle",
   pingMs: 0,
   activeIntents: 0,
   setActiveIntents: (n) => set({ activeIntents: n }),
-  setUser: (u) => set({ user: u }),
+  setUser: (u) =>
+    set((state) => {
+      if (!u?.id || state.user?.id === u.id) return { user: u };
+      // Members can land before READY does. Once the bot's own id is known,
+      // pick its member object out of whatever already arrived.
+      const selfMembers = new Map<string, GuildMember>();
+      state.members.forEach((list, guildId) => {
+        const self = list.find((m) => m.user?.id === u.id);
+        if (self) selfMembers.set(guildId, self);
+      });
+      return { user: u, selfMembers };
+    }),
   setGatewayState: (s) => set({ gatewayState: s }),
   setPing: (ms) => set({ pingMs: ms }),
   upsertGuild: (g) =>
@@ -124,6 +197,12 @@ export const useRealtimeStore = create<State>((set) => ({
     }),
   upsertChannel: (c) =>
     set((state) => {
+      if (isDmChannel(c)) {
+        const dms = new Map(state.dms);
+        dms.set(c.id, { ...dms.get(c.id), ...c });
+        storeDms(dms.values());
+        return { dms };
+      }
       if (!c.guild_id) return {};
       const next = new Map(state.guilds);
       const g = next.get(c.guild_id);
@@ -174,7 +253,22 @@ export const useRealtimeStore = create<State>((set) => ({
         const evicted = order.shift();
         if (evicted) messages.delete(evicted);
       }
-      return { channelOrder: order, messages };
+      const patch: Partial<State> = {
+        channelOrder: order,
+        messages,
+        activeChannelId: channelId,
+      };
+      if (state.unread.has(channelId)) {
+        const unread = new Map(state.unread);
+        unread.delete(channelId);
+        patch.unread = unread;
+      }
+      if (state.unreadMentions.has(channelId)) {
+        const mentions = new Set(state.unreadMentions);
+        mentions.delete(channelId);
+        patch.unreadMentions = mentions;
+      }
+      return patch;
     }),
   setMessages: (channelId, messages) =>
     set((state) => {
@@ -300,7 +394,11 @@ export const useRealtimeStore = create<State>((set) => ({
         }
       });
       next.set(guildId, Array.from(map.values()));
-      return { members: next };
+      const selfId = state.user?.id;
+      const self = selfId ? map.get(selfId) : undefined;
+      return self
+        ? { members: next, selfMembers: mirrorSelf(state, guildId, self) }
+        : { members: next };
     }),
   upsertMember: (guildId, member) =>
     set((state) => {
@@ -320,7 +418,9 @@ export const useRealtimeStore = create<State>((set) => ({
       }
       const filtered = cur.filter((m) => m.user?.id !== member.user?.id);
       next.set(guildId, filtered.concat(merged));
-      return { members: next };
+      return member.user?.id && member.user.id === state.user?.id
+        ? { members: next, selfMembers: mirrorSelf(state, guildId, merged) }
+        : { members: next };
     }),
   removeMember: (guildId, userId) =>
     set((state) => {
@@ -479,4 +579,55 @@ export const useRealtimeStore = create<State>((set) => ({
       if (!expired) return {};
       return { typing: next };
     }),
+  hydrateDms: () =>
+    set((state) => {
+      if (state.dmsHydrated) return {};
+      const dms = new Map(state.dms);
+      loadStoredDms().forEach((c) => {
+        if (!dms.has(c.id)) dms.set(c.id, c);
+      });
+      return { dms, dmsHydrated: true };
+    }),
+  upsertDm: (c) =>
+    set((state) => {
+      const prev = state.dms.get(c.id);
+      const merged = { ...prev, ...c };
+      // Recipients only ride along on the create response, so a later
+      // message-derived update must not blank them out.
+      if (!c.recipients?.length && prev?.recipients?.length) {
+        merged.recipients = prev.recipients;
+      }
+      const dms = new Map(state.dms);
+      dms.set(c.id, merged);
+      storeDms(dms.values());
+      return { dms };
+    }),
+  removeDm: (channelId) =>
+    set((state) => {
+      if (!state.dms.has(channelId)) return {};
+      const dms = new Map(state.dms);
+      dms.delete(channelId);
+      storeDms(dms.values());
+      const messages = new Map(state.messages);
+      messages.delete(channelId);
+      return {
+        dms,
+        messages,
+        channelOrder: state.channelOrder.filter((id) => id !== channelId),
+      };
+    }),
+  bumpUnread: (channelId, mention) =>
+    set((state) => {
+      if (state.activeChannelId === channelId) return {};
+      const unread = new Map(state.unread);
+      unread.set(channelId, (unread.get(channelId) ?? 0) + 1);
+      if (!mention) return { unread };
+      const unreadMentions = new Set(state.unreadMentions);
+      unreadMentions.add(channelId);
+      return { unread, unreadMentions };
+    }),
+  setActiveChannel: (channelId) =>
+    set((state) =>
+      state.activeChannelId === channelId ? {} : { activeChannelId: channelId },
+    ),
 }));

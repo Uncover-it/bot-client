@@ -59,6 +59,10 @@ export interface Channel {
   thread_metadata?: ThreadMetadata;
   applied_tags?: Snowflake[];
   owner_id?: Snowflake;
+  /** DM and group DM only. Bots always see exactly one recipient in a DM. */
+  recipients?: User[];
+  /** Group DM only. */
+  icon?: string | null;
 }
 
 export interface ForumTag {

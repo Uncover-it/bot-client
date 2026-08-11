@@ -3,6 +3,9 @@ import { withBotId } from "botid/next/config";
 
 const nextConfig: NextConfig = {
   cacheComponents: true,
+  // Auto-memoizes components and hooks, so the hand-rolled useMemo/useCallback
+  // in the message tree stops being the only thing keeping re-renders down.
+  reactCompiler: true,
   env: {
     BUILD_DATE: new Date().toISOString(),
   },

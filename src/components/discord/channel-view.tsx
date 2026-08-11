@@ -25,6 +25,7 @@ import {
 } from "@/components/discord/message-input";
 import { MemberList } from "@/components/discord/member-list";
 import { StatusBar } from "@/components/discord/status-bar";
+import { TimeoutBanner } from "@/components/discord/timeout-banner";
 import { ForumView } from "@/components/discord/forum-view";
 import { VoiceView } from "@/components/discord/voice-view";
 import { useRealtimeStore } from "@/lib/store";
@@ -183,6 +184,7 @@ export function ChannelView({ serverId, channelId }: Props) {
             </Button>
           )}
         </header>
+        <TimeoutBanner guildId={serverId} />
         {isText && (
           <>
             <MessageList
@@ -191,6 +193,20 @@ export function ChannelView({ serverId, channelId }: Props) {
               channelName={channel?.name}
               postStarterId={postStarterId}
               onReply={setReply}
+              emptyState={
+                <div className="flex flex-col items-center gap-2 px-6 py-16 text-center">
+                  <div className="size-14 rounded-2xl bg-muted grid place-items-center">
+                    <Icon className="size-6 text-muted-foreground" />
+                  </div>
+                  <h2 className="font-semibold text-lg">
+                    #{channel?.name ?? "channel"}
+                  </h2>
+                  <p className="text-sm text-muted-foreground max-w-sm">
+                    {channel?.topic ??
+                      "Nothing here yet. This is the very beginning of the channel."}
+                  </p>
+                </div>
+              }
             />
             <footer className="shrink-0 p-2 md:p-3 pt-3 pb-safe md:pb-3 border-t">
               <MessageInput

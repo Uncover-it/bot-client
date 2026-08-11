@@ -44,6 +44,7 @@ import {
   userBannerUrl,
 } from "@/lib/discord/cdn";
 import { useGuildPermissions } from "@/hooks/use-permissions";
+import { useOpenDm } from "@/hooks/use-open-dm";
 import { useResolvedTheme } from "@/hooks/use-resolved-theme";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { can } from "@/lib/discord/permissions";
@@ -58,6 +59,7 @@ import {
   Check,
   ClockPlus,
   Copy,
+  MessageSquare,
   Plus,
   ShieldAlert,
   TimerOff,
@@ -138,6 +140,7 @@ export function UserProfilePopover({ guildId, userId, trigger }: Props) {
   );
   const upsertMember = useRealtimeStore((s) => s.upsertMember);
   const perms = useGuildPermissions(guildId);
+  const openDmWith = useOpenDm();
   const [open, setOpen] = useState(false);
   const [rolePickerOpen, setRolePickerOpen] = useState(false);
   const liveHasRoles =
@@ -505,6 +508,20 @@ export function UserProfilePopover({ guildId, userId, trigger }: Props) {
               >
                 <Copy className="size-3 mr-1" /> ID
               </Button>
+
+              {!u?.bot && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs"
+                  onClick={() => {
+                    setOpen(false);
+                    openDmWith({ id: userId, ...u });
+                  }}
+                >
+                  <MessageSquare className="size-3 mr-1" /> Message
+                </Button>
+              )}
 
               {canTimeout && (
                 <DropdownMenu>

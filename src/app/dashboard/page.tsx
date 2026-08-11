@@ -2,34 +2,34 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { Github } from "lucide-react";
 import { YearFooter } from "@/components/year-footer";
+import { SessionOverview } from "@/components/discord/session-overview";
 
 export default function Dashboard() {
   return (
-    <div className="flex justify-center items-center w-full h-full text-center">
-      <div className="flex flex-col items-center">
-        <h1 className="text-3xl text-balance font-semibold">
-          Unofficial Discord Bot Client
-        </h1>
-        <p className="font-mono tracking-tighter text-muted-foreground mt-1.5 text-xl">
+    <div className="w-full h-full overflow-y-auto">
+      <SessionOverview />
+      <footer className="w-full max-w-3xl mx-auto px-4 pb-10 flex items-center gap-4 text-muted-foreground">
+        <span className="font-mono tracking-tighter text-xs">
           <Suspense fallback={null}>
             <YearFooter />
           </Suspense>
-        </p>
-        <span className="mt-2 flex justify-center gap-4">
+        </span>
+        <span className="ml-auto flex items-center gap-4">
           <Link
             href="https://github.com/Uncover-it/bot-client"
             target="_blank"
-            className="hover:text-current text-muted-foreground"
+            className="hover:text-current"
+            aria-label="Source on GitHub"
           >
-            <Github size={20} />
+            <Github size={18} />
           </Link>
           <Link
             href="https://discord.com/servers/uncover-it-1298592315694387220"
             target="_blank"
-            className="hover:text-current text-muted-foreground"
+            aria-label="Uncover It on Discord"
           >
             <svg
-              className="fill-muted-foreground hover:fill-current size-5"
+              className="fill-muted-foreground hover:fill-current size-4"
               xmlns="http://www.w3.org/2000/svg"
               viewBox="0 0 126.644 96"
             >
@@ -38,7 +38,7 @@ export default function Dashboard() {
             </svg>
           </Link>
         </span>
-      </div>
+      </footer>
     </div>
   );
 }

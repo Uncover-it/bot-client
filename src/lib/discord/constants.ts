@@ -118,6 +118,24 @@ export const PERMISSIONS: Record<string, bigint> = {
   "Use Soundboard": 1n << 42n,
 };
 
+/**
+ * What a bot can actually do inside a DM. There are no overwrites and no
+ * guild to resolve against, so this is a fixed set. Manage Messages is
+ * deliberately absent: a bot can delete its own DM messages but never the
+ * recipient's.
+ */
+export const DM_PERMISSIONS =
+  PERMISSIONS["View Channel"] |
+  PERMISSIONS["Send Messages"] |
+  PERMISSIONS["Read Message History"] |
+  PERMISSIONS["Embed Links"] |
+  PERMISSIONS["Attach Files"] |
+  PERMISSIONS["Add Reactions"] |
+  PERMISSIONS["Use External Emojis"] |
+  PERMISSIONS["Use External Stickers"] |
+  PERMISSIONS["Send TTS Messages"] |
+  PERMISSIONS["Pin Messages"];
+
 export const STATUS_COLOR: Record<string, string> = {
   online: "bg-green-500",
   idle: "bg-yellow-500",

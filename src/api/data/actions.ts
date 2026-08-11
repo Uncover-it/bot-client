@@ -618,3 +618,54 @@ export async function removeReaction(
   if (!res.ok) throw await discordError(res, "Failed to remove reaction");
   return { ok: true };
 }
+
+/**
+ * Who reacted with one emoji. Paginated by user id: pass the last id back as
+ * `after` to walk past the first page.
+ */
+export async function getReactionUsers(
+  channelId: string,
+  messageId: string,
+  emoji: string,
+  options?: { limit?: number; after?: string },
+) {
+  const qs = new URLSearchParams({ limit: String(options?.limit ?? 25) });
+  if (options?.after) qs.set("after", options.after);
+  const res = await authed(
+    `/channels/${channelId}/messages/${messageId}/reactions/${encodeURIComponent(emoji)}?${qs}`,
+    { cache: "no-store" },
+  );
+  if (!res.ok) throw await discordError(res, "Failed to load reactions");
+  const data = await res.json();
+  return Array.isArray(data) ? data : [];
+}
+
+/** Deletes every reaction of one emoji. Needs Manage Messages. */
+export async function clearReactionEmoji(
+  channelId: string,
+  messageId: string,
+  emoji: string,
+) {
+  await ensureHuman();
+  const res = await authed(
+    `/channels/${channelId}/messages/${messageId}/reactions/${encodeURIComponent(emoji)}`,
+    { method: "DELETE" },
+  );
+  if (!res.ok) throw await discordError(res, "Failed to clear reaction");
+  return { ok: true };
+}
+
+/**
+ * Opens (or re-opens) a DM with a user and returns the channel. Discord has no
+ * endpoint that lists a bot's DMs, so the client remembers what this returns.
+ */
+export async function openDm(recipientId: string) {
+  await ensureHuman();
+  const res = await authed("/users/@me/channels", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ recipient_id: recipientId }),
+  });
+  if (!res.ok) throw await discordError(res, "Failed to open DM");
+  return res.json();
+}

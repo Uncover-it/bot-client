@@ -16,21 +16,24 @@ import Image from "next/image";
 import type { Emoji } from "@/lib/discord/types";
 
 interface Props {
-  guildId: string;
+  /** Absent in a DM, where there is no server emoji set to offer. */
+  guildId?: string;
   onSelect: (token: string) => void;
 }
 
 type Tab = "guild" | "unicode";
 
 export function EmojiPickerPro({ guildId, onSelect }: Props) {
-  const guild = useRealtimeStore((s) => s.guilds.get(guildId));
+  const guild = useRealtimeStore((s) =>
+    guildId ? s.guilds.get(guildId) : undefined,
+  );
   const setEmojis = useRealtimeStore((s) => s.setEmojis);
-  const [tab, setTab] = useState<Tab>("guild");
+  const [tab, setTab] = useState<Tab>(guildId ? "guild" : "unicode");
   const [query, setQuery] = useState("");
 
   useEffect(() => {
     let alive = true;
-    if (guild?.emojis) return;
+    if (!guildId || guild?.emojis) return;
     (async () => {
       try {
         const data: Emoji[] = await getGuildEmojis(guildId);
@@ -49,26 +52,28 @@ export function EmojiPickerPro({ guildId, onSelect }: Props) {
 
   return (
     <div className="w-[min(340px,calc(100vw-1rem))] flex flex-col bg-popover">
-      <div className="flex border-b">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setTab("guild")}
-          className={`flex-1 rounded-none ${tab === "guild" ? "bg-muted" : ""}`}
-        >
-          Server
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setTab("unicode")}
-          className={`flex-1 rounded-none ${tab === "unicode" ? "bg-muted" : ""}`}
-        >
-          Unicode
-        </Button>
-      </div>
+      {guildId && (
+        <div className="flex border-b">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setTab("guild")}
+            className={`flex-1 rounded-none ${tab === "guild" ? "bg-muted" : ""}`}
+          >
+            Server
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setTab("unicode")}
+            className={`flex-1 rounded-none ${tab === "unicode" ? "bg-muted" : ""}`}
+          >
+            Unicode
+          </Button>
+        </div>
+      )}
 
-      {tab === "guild" ? (
+      {guildId && tab === "guild" ? (
         <>
           <div className="p-2 border-b">
             <Input

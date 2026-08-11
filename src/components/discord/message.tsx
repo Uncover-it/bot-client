@@ -36,6 +36,9 @@ interface Props {
   mentionsMe?: boolean;
   isPostStarter?: boolean;
   editing?: boolean;
+  /** Resolved once by the list, not per row. */
+  canReact?: boolean;
+  canManage?: boolean;
   // Takes the message back so callers can pass one stable callback for every
   // row instead of a per-row closure, which would defeat the memo below.
   onEditSave?: (message: Message, next: string) => void;
@@ -129,6 +132,8 @@ export const MessageItem = memo(function MessageItem({
   mentionsMe,
   isPostStarter,
   editing,
+  canReact = false,
+  canManage = false,
   onEditSave,
   onEditCancel,
   rowContextMenu,
@@ -399,12 +404,14 @@ export const MessageItem = memo(function MessageItem({
               )}
             </div>
           )}
-          {guildId && message.reactions && message.reactions.length > 0 && (
+          {message.reactions && message.reactions.length > 0 && (
             <MessageReactions
               guildId={guildId}
               channelId={message.channel_id}
               messageId={message.id}
               reactions={message.reactions}
+              canReact={canReact}
+              canManage={canManage}
             />
           )}
         </div>

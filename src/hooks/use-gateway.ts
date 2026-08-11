@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { DiscordGateway } from "@/lib/discord/gateway";
+import { CHANNEL_TYPE } from "@/lib/discord/constants";
 import { useRealtimeStore } from "@/lib/store";
 import type {
   Channel,
@@ -69,6 +70,9 @@ export function useGateway(token: string | null) {
     if (!token || started.current) return;
     started.current = true;
 
+    // The DM list is client-side memory, not something Discord will send.
+    store.getState().hydrateDms();
+
     const gw = new DiscordGateway({
       token,
       onState: (s) => store.getState().setGatewayState(s),
@@ -103,6 +107,23 @@ export function useGateway(token: string | null) {
     };
     // `store` is the Zustand hook itself, a stable module-level reference.
   }, [token]);
+}
+
+/**
+ * Records the DM a message arrived in. Bots cannot list their DMs, so the
+ * only reliable way to learn about an inbound one is the message itself: the
+ * author is the recipient.
+ */
+function rememberDm(m: Message) {
+  const store = useRealtimeStore.getState();
+  const me = store.user?.id;
+  if (m.author.id === me) return;
+  store.upsertDm({
+    id: m.channel_id,
+    type: CHANNEL_TYPE.DM,
+    recipients: [m.author],
+    last_message_id: m.id,
+  });
 }
 
 function handleDispatch(event: string, data: unknown) {
@@ -142,6 +163,10 @@ function handleDispatch(event: string, data: unknown) {
     }
     case "CHANNEL_DELETE": {
       const c = data as Channel;
+      if (c.type === CHANNEL_TYPE.DM || c.type === CHANNEL_TYPE.GROUP_DM) {
+        s.removeDm(c.id);
+        break;
+      }
       s.removeChannel(c.id, c.guild_id);
       break;
     }
@@ -189,7 +214,19 @@ function handleDispatch(event: string, data: unknown) {
       break;
     }
     case "MESSAGE_CREATE": {
-      s.addMessage(data as Message);
+      const m = data as Message;
+      // A DM the bot has never seen only announces itself through its first
+      // message, so synthesize the channel from the author.
+      if (!m.guild_id) rememberDm(m);
+      s.addMessage(m);
+      const me = useRealtimeStore.getState().user?.id;
+      if (me && m.author.id !== me) {
+        const mention =
+          !m.guild_id ||
+          (m.mentions ?? []).some((u) => u.id === me) ||
+          m.referenced_message?.author?.id === me;
+        s.bumpUnread(m.channel_id, mention);
+      }
       break;
     }
     case "MESSAGE_UPDATE": {

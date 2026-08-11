@@ -19,6 +19,11 @@ Unofficial **Discord Bot Client** ([Uncover-it/bot-client](https://github.com/Un
 ## Stack
 
 - Next.js 16 (App Router) + React 19, TypeScript strict.
+- **React Compiler is on** (`reactCompiler: true` in `next.config.ts`, via
+  `babel-plugin-react-compiler`). Components and hooks are auto-memoized, so
+  new code does not need `useMemo`/`useCallback` for plain render work. Keep
+  them only where the value must be referentially stable for a non-React
+  reason. Existing manual memoization is harmless and was left alone.
 - Bun runtime (`bun --bun next ...`). Lockfile is `bun.lock`.
 - Tailwind v4 (`@tailwindcss/postcss`), `tw-animate-css`.
 - shadcn/ui-style primitives in `src/components/ui/` (Radix under the hood via `radix-ui`).
@@ -30,8 +35,8 @@ Unofficial **Discord Bot Client** ([Uncover-it/bot-client](https://github.com/Un
 
 - `bun run dev` — dev server (port 3000).
 - `bun run build` / `bun run start` — prod.
-- `bun run lint` — ESLint (`eslint-config-next` + ts).
-- `bun run knip` — dead code check.
+- `bun run lint` — Biome (`biome check`). `bun run format` writes fixes.
+- `bunx tsc --noEmit` — typecheck.
 
 ## Path alias
 
@@ -50,6 +55,7 @@ src/
       servers/[serverId]/
         settings/page.tsx    Per-guild settings
         channels/[channelId]/page.tsx   Channel view (the main UI)
+      dms/[channelId]/page.tsx          DM view
   api/                       "use server" actions (NOT route handlers)
     session/actions.ts       getSessionToken, getCurrentUser
     validate/actions.ts      validateToken
@@ -67,12 +73,19 @@ src/
       gateway-provider.tsx   Boots gateway + REST ping interval
     discord/                 Feature components (the "chat" UI)
       channel-view.tsx       Channel container (text/voice/forum dispatch)
-      message-list.tsx       Message virtualization + jump-to-reply + hover toolbar
+      dm-view.tsx            DM container (same message stack, no guild)
+      dm-sidebar-section.tsx DM list + "new conversation" dialog
+      message-list.tsx       Message list + day dividers + jump-to-reply + hover toolbar
       message.tsx            Single message row (avatar, name, content, reply ref)
       message-input.tsx      Composer with reply state, typing, attachments
       message-content.tsx    Markdown + mention rendering
+      message-reactions.tsx  Reaction pills (toggle + hover reactor preview)
+      reaction-viewer.tsx    Who-reacted tooltip body + per-emoji dialog
       message-embed.tsx, message-attachment.tsx
       member-list.tsx        Right sidebar members
+      timeout-banner.tsx     Shown when the bot itself is timed out
+      unread-badge.tsx       Per-channel unread count
+      session-overview.tsx   Dashboard landing readout
       forum-view.tsx, voice-view.tsx
       channel-settings-dialog.tsx, server-settings.tsx, role-editor.tsx
       user-profile-popover.tsx, status-bar.tsx, emoji-picker-pro.tsx
@@ -81,16 +94,21 @@ src/
   hooks/
     use-gateway.ts           Connects DiscordGateway, pipes events to store
     use-permissions.ts       Channel/guild permission resolution
+    use-self-timeout.ts      Is the bot timed out here, plus countdown
+    use-open-dm.ts           Open/create a DM and navigate to it
     use-sidebar-resize.ts, use-mobile.ts, use-hydrated.ts
   lib/
-    store.ts                 Zustand realtime store (guilds, messages, members, presences, typing)
+    store.ts                 Zustand realtime store (guilds, messages, members,
+                             selfMembers, presences, typing, dms, unread)
     utils.ts                 cn() etc.
     merge-button-refs.ts
     discord/
       gateway.ts             DiscordGateway class (WS, heartbeat, resume, intents)
-      constants.ts           OP, INTENTS, PRIVILEGED_INTENTS, CHANNEL_TYPE, PERMISSIONS, GATEWAY_URL, API_BASE, CDN_BASE
+      constants.ts           OP, INTENTS, PRIVILEGED_INTENTS, CHANNEL_TYPE, PERMISSIONS, DM_PERMISSIONS, GATEWAY_URL, API_BASE, CDN_BASE
       types.ts               Discord API TS types (User, Guild, Channel, Message, ...)
       permissions.ts         Permission bit logic
+      emoji.ts               Reaction emoji keys and picker-token parsing
+      dm-storage.ts          localStorage persistence for the DM list
       cdn.ts                 avatarUrl, memberAvatarUrl, guildIconUrl, emojiUrl, stickerUrl, ...
   proxy.ts                   Next middleware: redirects "/" <-> "/dashboard" based on token cookie
 ```
@@ -102,6 +120,9 @@ src/
 3. `GatewayProvider` calls `useGateway(token)` which instantiates `DiscordGateway` and pipes dispatch events into `useRealtimeStore`.
 4. UI components read from `useRealtimeStore` (selectors) and call server actions in `src/api/data/actions.ts` for mutations / pagination.
 5. REST ping is polled every 30s for the status bar.
+6. `MESSAGE_CREATE` also drives unread counts (`bumpUnread`) and, for a DM,
+   registers the channel. `openChannel` clears the count and marks the channel
+   active; `MessageList` clears `activeChannelId` on unmount.
 
 ## Conventions / gotchas
 
@@ -112,6 +133,24 @@ src/
 - `shouldGroup` in `message.tsx` decides whether a message reuses the previous author's avatar/name (no avatar, tighter padding).
 - `contextMenuHandellers.tsx` is intentionally misspelled — don't "fix" the filename without grepping callers.
 - Privileged intents (`GUILD_MEMBERS`, `GUILD_PRESENCES`, `MESSAGE_CONTENT`) must be enabled in the Discord developer portal; UI surfaces a warning via `intent-warning.tsx`.
+- `serverId` is optional through the whole message stack (`MessageList`,
+  `MessageInput`, `MessageItem`, `MessageReactions`, `EmojiPickerPro`).
+  Absent means DM. `useChannelPermissions(undefined, id)` returns
+  `DM_PERMISSIONS`, and guild-only affordances (moderation, stickers, member
+  list, @-mention search) are hidden.
+- **Bots cannot list their DMs.** `POST /users/@me/channels` only creates one.
+  The DM list is client memory: `store.dms`, persisted to localStorage by
+  `dm-storage.ts`, fed by `CHANNEL_CREATE`, by `rememberDm` in
+  `use-gateway.ts` when a DM message arrives, and by `useOpenDm`.
+- Permission and timeout lookups read `store.selfMembers` (the bot's own
+  member per guild), not `store.members`. Scanning the members array in a
+  selector re-runs for every member chunk and shows up immediately when
+  hundreds of message rows subscribe.
+- Resolve permissions once in the list and pass booleans down (`canReact`,
+  `canManage`). Do not call `useChannelPermissions` per message row.
+- Message rows use `contain: layout style paint`, deliberately not
+  `content-visibility: auto`: the latter gives off-screen rows a placeholder
+  height and breaks the scroll restore in `loadOlder`.
 
 ## Style rules (from global CLAUDE.md)
 
@@ -126,3 +165,13 @@ src/
 - Find gateway event handling: open `src/hooks/use-gateway.ts` and search for the event name.
 - Find a permission check: `grep -rn "can(perms" src/`
 - Find store selectors: `grep -rn "useRealtimeStore((s)" src/`
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->
