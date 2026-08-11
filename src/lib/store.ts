@@ -14,6 +14,7 @@ import type { GatewayState } from "@/lib/discord/gateway";
 import {
   loadStoredDms,
   markDmsHydrated,
+  resetDmStorage,
   storeDms,
 } from "@/lib/discord/dm-storage";
 
@@ -110,11 +111,54 @@ interface State {
   setPresences: (guildId: string, presences: Presence[]) => void;
   setTyping: (channelId: string, userId: string) => void;
   pruneTyping: () => void;
-  hydrateDms: () => void;
+  hydrateDms: (botId: string) => void;
   upsertDm: (c: Channel) => void;
   removeDm: (channelId: string) => void;
   bumpUnread: (channelId: string, mention: boolean) => void;
   setActiveChannel: (channelId: string | null) => void;
+  /** Drops everything that belonged to the bot that is logging out. */
+  reset: () => void;
+}
+
+/**
+ * The part of the store that belongs to one bot. Logging in as another bot has
+ * to drop all of it: a different bot is in different guilds, sees different
+ * members and has different DMs. The connection fields (gateway state, ping,
+ * intents) are deliberately not in here, they describe the live socket.
+ */
+type Session = Pick<
+  State,
+  | "user"
+  | "guilds"
+  | "messages"
+  | "channelOrder"
+  | "members"
+  | "selfMembers"
+  | "presences"
+  | "typing"
+  | "dms"
+  | "dmsHydrated"
+  | "unread"
+  | "unreadMentions"
+  | "activeChannelId"
+>;
+
+function emptySession(): Session {
+  return {
+    user: null,
+    guilds: new Map(),
+    messages: new Map(),
+    channelOrder: [],
+    members: new Map(),
+    selfMembers: new Map(),
+    presences: new Map(),
+    typing: new Map(),
+    dms: new Map(),
+    dmsHydrated: false,
+    unread: new Map(),
+    unreadMentions: new Set(),
+    activeChannelId: null,
+  };
 }
 
 /** DM and group DM. Everything else belongs to a guild. */
@@ -153,19 +197,7 @@ function sameRoles(a: string[] | undefined, b: string[] | undefined): boolean {
 }
 
 export const useRealtimeStore = create<State>((set) => ({
-  user: null,
-  guilds: new Map(),
-  messages: new Map(),
-  channelOrder: [],
-  members: new Map(),
-  selfMembers: new Map(),
-  presences: new Map(),
-  typing: new Map(),
-  dms: new Map(),
-  dmsHydrated: false,
-  unread: new Map(),
-  unreadMentions: new Set(),
-  activeChannelId: null,
+  ...emptySession(),
   gatewayState: "idle",
   pingMs: 0,
   activeIntents: 0,
@@ -173,6 +205,18 @@ export const useRealtimeStore = create<State>((set) => ({
   setUser: (u) =>
     set((state) => {
       if (!u?.id || state.user?.id === u.id) return { user: u };
+      if (state.user) {
+        // Another bot logged in. This store is module state and survives the
+        // client-side navigation through the login screen, so without this the
+        // previous bot's guilds, members and messages stay on screen.
+        resetDmStorage();
+        const dms = new Map<string, Channel>();
+        loadStoredDms(u.id).forEach((c) => {
+          dms.set(c.id, c);
+        });
+        markDmsHydrated();
+        return { ...emptySession(), user: u, dms, dmsHydrated: true };
+      }
       // Members can land before READY does. Once the bot's own id is known,
       // pick its member object out of whatever already arrived.
       const selfMembers = new Map<string, GuildMember>();
@@ -583,11 +627,11 @@ export const useRealtimeStore = create<State>((set) => ({
       if (!expired) return {};
       return { typing: next };
     }),
-  hydrateDms: () =>
+  hydrateDms: (botId) =>
     set((state) => {
       if (state.dmsHydrated) return {};
       const dms = new Map(state.dms);
-      loadStoredDms().forEach((c) => {
+      loadStoredDms(botId).forEach((c) => {
         if (!dms.has(c.id)) dms.set(c.id, c);
       });
       markDmsHydrated();
@@ -635,4 +679,8 @@ export const useRealtimeStore = create<State>((set) => ({
     set((state) =>
       state.activeChannelId === channelId ? {} : { activeChannelId: channelId },
     ),
+  reset: () => {
+    resetDmStorage();
+    set(emptySession());
+  },
 }));

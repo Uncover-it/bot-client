@@ -62,7 +62,7 @@ function discardBuffers() {
   presenceBuffer.clear();
 }
 
-export function useGateway(token: string | null) {
+export function useGateway(token: string | null, botId: string | null) {
   const started = useRef(false);
   const store = useRealtimeStore;
 
@@ -70,8 +70,9 @@ export function useGateway(token: string | null) {
     if (!token || started.current) return;
     started.current = true;
 
-    // The DM list is client-side memory, not something Discord will send.
-    store.getState().hydrateDms();
+    // The DM list is client-side memory, not something Discord will send. It
+    // is stored per bot, so it can only be read once the bot's id is known.
+    if (botId) store.getState().hydrateDms(botId);
 
     const gw = new DiscordGateway({
       token,
@@ -106,7 +107,7 @@ export function useGateway(token: string | null) {
       started.current = false;
     };
     // `store` is the Zustand hook itself, a stable module-level reference.
-  }, [token]);
+  }, [token, botId]);
 }
 
 /**

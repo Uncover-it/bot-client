@@ -1,7 +1,6 @@
 "use server";
 
 import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
 import { cacheLife } from "next/cache";
 import { checkBotId } from "botid/server";
 import { API_BASE } from "@/lib/discord/constants";
@@ -65,10 +64,14 @@ async function ensureHuman() {
   if (v.isBot) throw new Error("Access denied");
 }
 
+/**
+ * Clears the session cookie only. The caller navigates, and does it with a
+ * full page load: `redirect("/")` here is a client-side navigation, which
+ * leaves the realtime store (module state) holding the old bot's guilds.
+ */
 export async function logout() {
   const c = await cookies();
   c.delete("token");
-  redirect("/");
 }
 
 export async function getBotInfo() {

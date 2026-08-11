@@ -149,7 +149,16 @@ src/
   Do not "fix" the empty list by inventing an enumeration endpoint.
 - `storeDms` refuses to write before `markDmsHydrated()`, otherwise the first
   write would persist an in-memory map missing everything on disk and wipe the
-  user's list.
+  user's list. The localStorage key is scoped per bot
+  (`bot-client:dms:<botId>`), set by `loadStoredDms(botId)`; without a scope
+  nothing is written.
+- **Switching bots must not leak state.** The Zustand store is module state and
+  survives client-side navigation, so logging out and back in used to leave the
+  previous bot's guilds on screen. Two guards: `logout()` only clears the
+  cookie and `handleLogout` in `sidebar.tsx` calls `store.reset()` then
+  `window.location.replace("/")` (full page load), and `setUser` wipes the
+  session when the bot id changes. Keep new per-session fields inside the
+  `Session` type in `store.ts` so `emptySession()` clears them too.
 - Permission and timeout lookups read `store.selfMembers` (the bot's own
   member per guild), not `store.members`. Scanning the members array in a
   selector re-runs for every member chunk and shows up immediately when

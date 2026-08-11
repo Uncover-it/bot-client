@@ -16,7 +16,7 @@ export function GatewayProvider({
   initialToken,
   children,
 }: Props) {
-  useGateway(initialToken);
+  useGateway(initialToken, initialUser?.id ?? null);
   const setUser = useRealtimeStore((s) => s.setUser);
 
   useEffect(() => {

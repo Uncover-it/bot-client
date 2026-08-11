@@ -94,6 +94,19 @@ function matchesFilter(guild: Guild, needle: string): boolean {
   );
 }
 
+/**
+ * Clears the cookie, drops the store, then leaves with a full page load. A
+ * client-side navigation would keep this bundle alive, and the next bot would
+ * log in on top of the previous one's guilds, members and messages.
+ */
+async function handleLogout() {
+  try {
+    await logout();
+  } catch {}
+  useRealtimeStore.getState().reset();
+  window.location.replace("/");
+}
+
 export function AppSidebar() {
   const guildsMap = useRealtimeStore((s) => s.guilds);
   const user = useRealtimeStore((s) => s.user);
@@ -226,16 +239,14 @@ export function AppSidebar() {
                     </DialogTrigger>
                   </DropdownMenuGroup>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem variant="destructive" asChild>
-                    <form action={logout}>
-                      <button
-                        type="submit"
-                        className="flex w-full items-center gap-2"
-                      >
-                        <LogOut className="text-destructive" />
-                        Log out
-                      </button>
-                    </form>
+                  <DropdownMenuItem
+                    variant="destructive"
+                    onSelect={() => {
+                      void handleLogout();
+                    }}
+                  >
+                    <LogOut className="text-destructive" />
+                    Log out
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
