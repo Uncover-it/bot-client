@@ -11,7 +11,11 @@ import type {
   User,
 } from "@/lib/discord/types";
 import type { GatewayState } from "@/lib/discord/gateway";
-import { loadStoredDms, storeDms } from "@/lib/discord/dm-storage";
+import {
+  loadStoredDms,
+  markDmsHydrated,
+  storeDms,
+} from "@/lib/discord/dm-storage";
 
 type ChannelMessages = Map<string, Message[]>;
 type GuildMembers = Map<string, GuildMember[]>;
@@ -586,6 +590,7 @@ export const useRealtimeStore = create<State>((set) => ({
       loadStoredDms().forEach((c) => {
         if (!dms.has(c.id)) dms.set(c.id, c);
       });
+      markDmsHydrated();
       return { dms, dmsHydrated: true };
     }),
   upsertDm: (c) =>

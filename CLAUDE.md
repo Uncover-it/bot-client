@@ -138,10 +138,18 @@ src/
   Absent means DM. `useChannelPermissions(undefined, id)` returns
   `DM_PERMISSIONS`, and guild-only affordances (moderation, stickers, member
   list, @-mention search) are hidden.
-- **Bots cannot list their DMs.** `POST /users/@me/channels` only creates one.
-  The DM list is client memory: `store.dms`, persisted to localStorage by
-  `dm-storage.ts`, fed by `CHANNEL_CREATE`, by `rememberDm` in
-  `use-gateway.ts` when a DM message arrives, and by `useOpenDm`.
+- **Bots cannot list their DMs.** There is no endpoint, and `READY.private_channels`
+  is empty for bots. The DM list is client memory: `store.dms`, persisted to
+  localStorage by `dm-storage.ts`, fed by `CHANNEL_CREATE`, by `rememberDm` in
+  `use-gateway.ts` when a DM message arrives, and by `useOpenDm`. So a fresh
+  browser shows no DMs even when the bot has a long history with someone.
+  Recovery is by person: `POST /users/@me/channels` returns the *existing*
+  channel, and its history then loads normally. `dm-compose-dialog.tsx` is
+  that recovery path (search shared-server members, or paste a user ID).
+  Do not "fix" the empty list by inventing an enumeration endpoint.
+- `storeDms` refuses to write before `markDmsHydrated()`, otherwise the first
+  write would persist an in-memory map missing everything on disk and wipe the
+  user's list.
 - Permission and timeout lookups read `store.selfMembers` (the bot's own
   member per guild), not `store.members`. Scanning the members array in a
   selector re-runs for every member chunk and shows up immediately when
